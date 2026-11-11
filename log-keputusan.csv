@@ -1,3 +1,3 @@
-﻿id,tanggal,nim,tahap,seri_kode,keputusan,alternatif_ditolak,alasan,dampak_baris
+id,tanggal,nim,tahap,seri_kode,keputusan,alternatif_ditolak,alasan,dampak_baris
 K-001,2026-11-08,124450100,silver,lintas-seri,"Pemetaan nama dan kode wilayah pada data mentah BPS/WDI ke 38 provinsi standar, termasuk 4 provinsi baru di Papua sesuai UU 2022","Mempertahankan format wilayah tiap sumber; menyatukan provinsi baru dengan Papua induk; menggunakan daftar 34 provinsi","Mengacu pada Standar Kode dan Data Wilayah Administrasi Pemerintahan Resmi BPS/Kemendagri dan menstandarkan kode provinsi menjadi kode BPS x 100. Pemetaan mencegah provinsi baru menjadi missing atau bentrok dengan Papua induk saat penggabungan, serta menjaga struktur panel Gold Provinsi x Periode x Indikator.",0
 K-002,2026-11-03,124450103,silver,var543,"periode bulanan Februari/Agustus disimpan sebagai jenis_periode=bulan","rata-rata ke tahunan","sumber menerbitkan dua kali setahun; agregasi dilakukan di Gold",0

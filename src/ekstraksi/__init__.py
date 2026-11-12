@@ -1,4 +1,4 @@
-"""Pembaca data mentah BPS untuk Tahap 1 (Ekstraksi).
+"""Pembaca data mentah BPS dan WDI untuk Tahap 1 (Ekstraksi).
 
 Berkas dibaca tanpa pembersihan nilai. Setiap DataFrame diberi jalur relatif dan
 sha256 sumbernya agar hasil tahap berikutnya tetap dapat ditelusuri.
@@ -12,10 +12,11 @@ from pathlib import Path
 
 import pandas as pd
 
-from src.common.manifest import RAW, sha256_raw
+from src.common.manifest import RAW, baca, sha256_raw
 
 _VAR_IDS = ("1311", "1312", "2738", "2740", "1410", "1831")
 _BERKAS_SERI = re.compile(r"(?:^|_)v(?:" + "|".join(_VAR_IDS) + r")$")
+_WDI_IDS = {"VC.IHR.PSRC.P5", "SP.REG.BRTH.ZS"}
 _KOLOM_JSON = (
     "var_id", "wilayah_id", "wilayah", "turvar_id", "turvar",
     "tahun_id", "tahun", "periode_id", "periode", "nilai", "satuan",
@@ -107,26 +108,66 @@ def _baca_json(path):
     return pd.DataFrame.from_records(baris, columns=_KOLOM_JSON)
 
 
+def _rekaman_wdi(isi, konteks):
+    if isinstance(isi, list) and len(isi) == 2 and isinstance(isi[1], list):
+        rekaman = isi[1]
+    elif isinstance(isi, dict) and isinstance(isi.get("source"), list):
+        rekaman = isi["source"]
+    else:
+        rekaman = [isi] if isinstance(isi, dict) else isi
+    if not isinstance(rekaman, list) or not all(isinstance(item, dict) for item in rekaman):
+        raise ValueError(f"Struktur JSON WDI tidak berisi daftar objek: {konteks}")
+    return rekaman
+
+
+def _baca_wdi(path):
+    isi = json.loads(_decode(path))
+    rekaman = _rekaman_wdi(isi, path)
+    tabel = pd.json_normalize(rekaman, sep=".")
+    if path.parent.name == "data":
+        if "indicator.id" not in tabel.columns:
+            raise ValueError(f"Data WDI tidak memiliki indicator.id: {path}")
+        tabel = tabel[tabel["indicator.id"].isin(_WDI_IDS)].reset_index(drop=True)
+    elif path.parent.name == "metadata" and "indikator" in path.stem:
+        if "id" not in tabel.columns:
+            raise ValueError(f"Metadata indikator WDI tidak memiliki id: {path}")
+        tabel = tabel[tabel["id"].isin(_WDI_IDS)].reset_index(drop=True)
+    return tabel
+
+
 def jalankan(raw=RAW):
-    """Kembalikan {jalur relatif data/raw: DataFrame BPS mentah}."""
+    """Kembalikan {jalur relatif data/raw: DataFrame BPS atau WDI mentah}."""
     raw = Path(raw)
+    berkas_manifest = baca(raw)
     akar_bps = raw / "bps"
-    berkas = [
+    berkas_bps = [
         path for path in akar_bps.rglob("*")
         if path.is_file()
         and (path.suffix.lower() == ".csv" or (
             path.suffix.lower() == ".json" and path.parent.name == "json"
         ))
         and _BERKAS_SERI.search(path.stem)
+        and path.relative_to(raw).as_posix() in berkas_manifest
     ]
-    berkas.sort(key=lambda path: path.relative_to(raw).as_posix())
+    akar_wdi = raw / "wdi"
+    berkas_wdi = [
+        path for path in akar_wdi.rglob("*.json")
+        if path.is_file() and path.relative_to(raw).as_posix() in berkas_manifest
+    ]
+    berkas = sorted(
+        berkas_bps + berkas_wdi,
+        key=lambda path: path.relative_to(raw).as_posix(),
+    )
     if not berkas:
-        raise FileNotFoundError(f"Tidak ada berkas seri BPS yang didukung di {akar_bps}")
+        raise FileNotFoundError(f"Tidak ada berkas BPS atau WDI yang didukung di {raw}")
 
     hasil = {}
     for path in berkas:
         relatif = path.relative_to(raw).as_posix()
-        tabel = _baca_csv(path) if path.suffix.lower() == ".csv" else _baca_json(path)
+        if path.is_relative_to(akar_bps):
+            tabel = _baca_csv(path) if path.suffix.lower() == ".csv" else _baca_json(path)
+        else:
+            tabel = _baca_wdi(path)
         tabel["_berkas_raw"] = relatif
         tabel["_sha256_raw"] = sha256_raw(relatif, raw=raw)
         hasil[relatif] = tabel

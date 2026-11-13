@@ -108,9 +108,37 @@ def _baca_json(path):
     return pd.DataFrame.from_records(baris, columns=_KOLOM_JSON)
 
 
+def _baca_manifest_bps(path):
+    isi = json.loads(_decode(path))
+    if not isinstance(isi, dict) or not isinstance(isi.get("tabel"), dict):
+        raise ValueError(f"Manifest asal BPS tidak memiliki tabel berbentuk objek: {path}")
+    baris = []
+    for nama, rincian in isi["tabel"].items():
+        if not isinstance(rincian, dict):
+            raise ValueError(f"Rincian tabel BPS tidak berbentuk objek: {nama!r} di {path}")
+        baris.append({
+            **{k: v for k, v in isi.items() if k != "tabel"},
+            "tabel_id": nama,
+            **rincian,
+        })
+    return pd.json_normalize(baris, sep=".")
+
+
 def _rekaman_wdi(isi, konteks):
-    if isinstance(isi, list) and len(isi) == 2 and isinstance(isi[1], list):
+    def halaman(payload):
+        return (
+            isinstance(payload, list)
+            and len(payload) == 2
+            and isinstance(payload[0], dict)
+            and "page" in payload[0]
+            and "pages" in payload[0]
+            and isinstance(payload[1], list)
+        )
+
+    if halaman(isi):
         rekaman = isi[1]
+    elif isinstance(isi, list) and isi and all(halaman(item) for item in isi):
+        rekaman = [item for halaman_data in isi for item in halaman_data[1]]
     elif isinstance(isi, dict) and isinstance(isi.get("source"), list):
         rekaman = isi["source"]
     else:
@@ -139,35 +167,30 @@ def jalankan(raw=RAW):
     """Kembalikan {jalur relatif data/raw: DataFrame BPS atau WDI mentah}."""
     raw = Path(raw)
     berkas_manifest = baca(raw)
-    akar_bps = raw / "bps"
-    berkas_bps = [
-        path for path in akar_bps.rglob("*")
-        if path.is_file()
-        and (path.suffix.lower() == ".csv" or (
-            path.suffix.lower() == ".json" and path.parent.name == "json"
-        ))
-        and _BERKAS_SERI.search(path.stem)
-        and path.relative_to(raw).as_posix() in berkas_manifest
-    ]
-    akar_wdi = raw / "wdi"
-    berkas_wdi = [
-        path for path in akar_wdi.rglob("*.json")
-        if path.is_file() and path.relative_to(raw).as_posix() in berkas_manifest
-    ]
-    berkas = sorted(
-        berkas_bps + berkas_wdi,
-        key=lambda path: path.relative_to(raw).as_posix(),
-    )
+    berkas = sorted(berkas_manifest)
     if not berkas:
-        raise FileNotFoundError(f"Tidak ada berkas BPS atau WDI yang didukung di {raw}")
+        raise FileNotFoundError(f"MANIFEST.csv tidak mencatat berkas mentah di {raw}")
 
     hasil = {}
-    for path in berkas:
-        relatif = path.relative_to(raw).as_posix()
-        if path.is_relative_to(akar_bps):
-            tabel = _baca_csv(path) if path.suffix.lower() == ".csv" else _baca_json(path)
-        else:
+    for relatif in berkas:
+        path = raw / relatif
+        bagian = Path(relatif).parts
+        if len(bagian) < 2:
+            raise ValueError(f"Jalur sumber tidak dikenali di MANIFEST.csv: {relatif}")
+        if bagian[0] == "bps" and path.suffix.lower() == ".csv":
+            if not _BERKAS_SERI.search(path.stem):
+                raise ValueError(f"Seri CSV BPS tidak didukung: {relatif}")
+            tabel = _baca_csv(path)
+        elif bagian[0] == "bps" and path.name == "manifest_asal.json":
+            tabel = _baca_manifest_bps(path)
+        elif bagian[0] == "bps" and path.suffix.lower() == ".json":
+            if path.parent.name != "json" or not _BERKAS_SERI.search(path.stem):
+                raise ValueError(f"JSON BPS tidak dikenali: {relatif}")
+            tabel = _baca_json(path)
+        elif bagian[0] == "wdi" and path.suffix.lower() == ".json":
             tabel = _baca_wdi(path)
+        else:
+            raise ValueError(f"Format/sumber mentah tidak didukung: {relatif}")
         tabel["_berkas_raw"] = relatif
         tabel["_sha256_raw"] = sha256_raw(relatif, raw=raw)
         hasil[relatif] = tabel

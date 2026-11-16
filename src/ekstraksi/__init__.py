@@ -1,11 +1,197 @@
-"""Tahap 1 — Ekstraksi (pertemuan X). Milik tim.
+"""Pembaca data mentah BPS dan WDI untuk Tahap 1 (Ekstraksi).
 
-Baca setiap berkas di data/raw/ (CSV, JSON WebAPI BPS, XLSX BNPB, SDMX ILO, JSON WDI) menjadi
-DataFrame mentah yang setia pada sumbernya: jangan membersihkan di sini, cukup ratakan struktur
-dan catat asal tiap baris (`_berkas_raw` relatif data/raw/, `_sha256_raw` dari src.common.manifest).
+Berkas dibaca tanpa pembersihan nilai. Setiap DataFrame diberi jalur relatif dan
+sha256 sumbernya agar hasil tahap berikutnya tetap dapat ditelusuri.
 """
+import csv
+import io
+import json
+import re
+from itertools import product
+from pathlib import Path
+
+import pandas as pd
+
+from src.common.manifest import RAW, baca, sha256_raw
+
+_VAR_IDS = ("1311", "1312", "2738", "2740", "1410", "1831")
+_BERKAS_SERI = re.compile(r"(?:^|_)v(?:" + "|".join(_VAR_IDS) + r")$")
+_WDI_IDS = {"VC.IHR.PSRC.P5", "SP.REG.BRTH.ZS"}
+_KOLOM_JSON = (
+    "var_id", "wilayah_id", "wilayah", "turvar_id", "turvar",
+    "tahun_id", "tahun", "periode_id", "periode", "nilai", "satuan",
+)
 
 
-def jalankan():
-    """Kembalikan {nama_sumber: DataFrame mentah}."""
-    raise NotImplementedError("Tahap 1: tulis pembaca untuk tiap format di data/raw/")
+def _decode(path):
+    """Dekode teks tanpa mengganti karakter yang tidak dikenal."""
+    data = path.read_bytes()
+    kesalahan = []
+    for encoding in ("utf-8-sig", "utf-8", "cp1252", "latin-1"):
+        try:
+            return data.decode(encoding)
+        except UnicodeDecodeError as error:
+            kesalahan.append(error)
+    raise kesalahan[-1]
+
+
+def _baca_csv(path):
+    teks = _decode(path)
+    contoh = "\n".join(teks.splitlines()[:10])
+    try:
+        pemisah = csv.Sniffer().sniff(contoh, delimiters=",;\t|").delimiter
+    except csv.Error:
+        pemisah = max((",", ";", "\t", "|"), key=contoh.count)
+
+    pembaca = csv.DictReader(io.StringIO(teks), delimiter=pemisah)
+    pola_desimal_koma = re.compile(r"^[+-]?\d+,\d+$")
+    nilai = [row.get("nilai", "").strip() for _, row in zip(range(100), pembaca)]
+    desimal = "," if any(pola_desimal_koma.fullmatch(v) for v in nilai) else "."
+    return pd.read_csv(
+        io.StringIO(teks),
+        sep=pemisah,
+        decimal=desimal,
+        keep_default_na=False,
+    )
+
+
+def _nilai_dimension(item, nama, konteks):
+    if not isinstance(item, dict) or "val" not in item or "label" not in item:
+        raise ValueError(f"Dimensi {nama} tidak valid pada {konteks}: {item!r}")
+    return item
+
+
+def _baca_json(path):
+    isi = json.loads(_decode(path))
+    objek = isi if isinstance(isi, list) else [isi]
+    baris = []
+
+    for indeks, data in enumerate(objek):
+        konteks = f"{path} objek ke-{indeks}"
+        if not isinstance(data, dict) or not isinstance(data.get("datacontent"), dict):
+            raise ValueError(f"Struktur BPS tidak memiliki datacontent berbentuk objek: {konteks}")
+        dimensi = {}
+        for nama in ("vervar", "var", "turvar", "tahun", "turtahun"):
+            nilai = data.get(nama)
+            if not isinstance(nilai, list):
+                raise ValueError(f"Dimensi {nama} tidak berbentuk daftar: {konteks}")
+            dimensi[nama] = [_nilai_dimension(item, nama, konteks) for item in nilai]
+
+        indeks_kunci = {}
+        for kombinasi in product(
+            dimensi["vervar"], dimensi["var"], dimensi["turvar"],
+            dimensi["tahun"], dimensi["turtahun"],
+        ):
+            kunci = "".join(str(d["val"]) for d in kombinasi)
+            if kunci in indeks_kunci:
+                raise ValueError(f"Kunci datacontent ambigu {kunci!r}: {konteks}")
+            indeks_kunci[kunci] = kombinasi
+
+        for kunci, nilai in data["datacontent"].items():
+            if kunci not in indeks_kunci:
+                raise ValueError(f"Kunci datacontent tidak cocok dengan dimensi {kunci!r}: {konteks}")
+            vervar, var, turvar, tahun, turtahun = indeks_kunci[kunci]
+            baris.append({
+                "var_id": var["val"],
+                "wilayah_id": vervar["val"],
+                "wilayah": vervar["label"],
+                "turvar_id": turvar["val"],
+                "turvar": turvar["label"],
+                "tahun_id": tahun["val"],
+                "tahun": tahun["label"],
+                "periode_id": turtahun["val"],
+                "periode": turtahun["label"],
+                "nilai": nilai,
+                "satuan": var.get("unit", ""),
+            })
+
+    return pd.DataFrame.from_records(baris, columns=_KOLOM_JSON)
+
+
+def _baca_manifest_bps(path):
+    isi = json.loads(_decode(path))
+    if not isinstance(isi, dict) or not isinstance(isi.get("tabel"), dict):
+        raise ValueError(f"Manifest asal BPS tidak memiliki tabel berbentuk objek: {path}")
+    baris = []
+    for nama, rincian in isi["tabel"].items():
+        if not isinstance(rincian, dict):
+            raise ValueError(f"Rincian tabel BPS tidak berbentuk objek: {nama!r} di {path}")
+        baris.append({
+            **{k: v for k, v in isi.items() if k != "tabel"},
+            "tabel_id": nama,
+            **rincian,
+        })
+    return pd.json_normalize(baris, sep=".")
+
+
+def _rekaman_wdi(isi, konteks):
+    def halaman(payload):
+        return (
+            isinstance(payload, list)
+            and len(payload) == 2
+            and isinstance(payload[0], dict)
+            and "page" in payload[0]
+            and "pages" in payload[0]
+            and isinstance(payload[1], list)
+        )
+
+    if halaman(isi):
+        rekaman = isi[1]
+    elif isinstance(isi, list) and isi and all(halaman(item) for item in isi):
+        rekaman = [item for halaman_data in isi for item in halaman_data[1]]
+    elif isinstance(isi, dict) and isinstance(isi.get("source"), list):
+        rekaman = isi["source"]
+    else:
+        rekaman = [isi] if isinstance(isi, dict) else isi
+    if not isinstance(rekaman, list) or not all(isinstance(item, dict) for item in rekaman):
+        raise ValueError(f"Struktur JSON WDI tidak berisi daftar objek: {konteks}")
+    return rekaman
+
+
+def _baca_wdi(path):
+    isi = json.loads(_decode(path))
+    rekaman = _rekaman_wdi(isi, path)
+    tabel = pd.json_normalize(rekaman, sep=".")
+    if path.parent.name == "data":
+        if "indicator.id" not in tabel.columns:
+            raise ValueError(f"Data WDI tidak memiliki indicator.id: {path}")
+        tabel = tabel[tabel["indicator.id"].isin(_WDI_IDS)].reset_index(drop=True)
+    elif path.parent.name == "metadata" and "indikator" in path.stem:
+        if "id" not in tabel.columns:
+            raise ValueError(f"Metadata indikator WDI tidak memiliki id: {path}")
+        tabel = tabel[tabel["id"].isin(_WDI_IDS)].reset_index(drop=True)
+    return tabel
+
+
+def jalankan(raw=RAW):
+    """Kembalikan {jalur relatif data/raw: DataFrame BPS atau WDI mentah}."""
+    raw = Path(raw)
+    berkas_manifest = baca(raw)
+    berkas = sorted(berkas_manifest)
+    if not berkas:
+        raise FileNotFoundError(f"MANIFEST.csv tidak mencatat berkas mentah di {raw}")
+
+    hasil = {}
+    for relatif in berkas:
+        path = raw / relatif
+        bagian = Path(relatif).parts
+        if len(bagian) < 2:
+            raise ValueError(f"Jalur sumber tidak dikenali di MANIFEST.csv: {relatif}")
+        if bagian[0] == "bps" and path.suffix.lower() == ".csv":
+            if not _BERKAS_SERI.search(path.stem):
+                raise ValueError(f"Seri CSV BPS tidak didukung: {relatif}")
+            tabel = _baca_csv(path)
+        elif bagian[0] == "bps" and path.name == "manifest_asal.json":
+            tabel = _baca_manifest_bps(path)
+        elif bagian[0] == "bps" and path.suffix.lower() == ".json":
+            if path.parent.name != "json" or not _BERKAS_SERI.search(path.stem):
+                raise ValueError(f"JSON BPS tidak dikenali: {relatif}")
+            tabel = _baca_json(path)
+        elif bagian[0] == "wdi" and path.suffix.lower() == ".json":
+            tabel = _baca_wdi(path)
+        else:
+            raise ValueError(f"Format/sumber mentah tidak didukung: {relatif}")
+        tabel["_berkas_raw"] = relatif
+        tabel["_sha256_raw"] = sha256_raw(relatif, raw=raw)
+        hasil[relatif] = tabel
+    return hasil

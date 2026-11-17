@@ -3,14 +3,14 @@
     python unduh_data.py --kasus <N>     # sekali, isi data/raw/
     python pipeline.py
 
-Keluaran panel: data/gold/grid_provinsi.parquet, data/gold/indonesia_terpisah.parquet,
-dan reports/tables/matriks_ketersediaan_panel.csv.
+Keluaran: Silver ber-lineage snapshot, profil semua snapshot, dan grid panel snapshot terbaru.
 """
 import sys
 
 from src import ekstraksi
 from src.common.manifest import baca, periksa
 from src.gold.grid_provinsi import bentuk_grid
+from src.profiling.profil_anomali import jalankan_profiling
 from src.silver.buat_silver import buat_silver
 
 
@@ -38,6 +38,7 @@ def main():
     print(f"ekstraksi selesai: {len(mentah)} berkas, {baris} baris mentah")
 
     buat_silver()
+    jalankan_profiling()
     grid, indonesia, matriks = bentuk_grid()
     print(
         f"grid provinsi: {len(grid)} sel; Indonesia terpisah: {len(indonesia)} baris; "

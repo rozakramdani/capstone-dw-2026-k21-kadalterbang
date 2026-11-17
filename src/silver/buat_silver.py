@@ -3,6 +3,7 @@ import os
 import re
 from src import ekstraksi
 
+
 def tentukan_jenis_periode(periode_str):
     """Fungsi bantuan untuk menebak jenis periode berdasarkan format teks."""
     periode_str = str(periode_str)
@@ -14,6 +15,78 @@ def tentukan_jenis_periode(periode_str):
         return 'bulan'
     else:
         return 'tahun' # Diubah dari 'tahunan' menjadi 'tahun' agar lolos skema
+
+
+def _ringkas_snapshot(df):
+    kunci = ["sumber", "seri_kode", "wilayah_kode", "periode", "rincian"]
+    ringkasan = []
+    revisi = []
+
+    for seri, data_seri in df.groupby("seri_kode"):
+        snapshot = sorted(data_seri["_snapshot"].unique())
+        if len(snapshot) == 1:
+            pasangan = [(None, snapshot[0])]
+        else:
+            pasangan = list(zip(snapshot, snapshot[1:]))
+
+        for lama, baru in pasangan:
+            terbaru = data_seri[data_seri["_snapshot"] == baru]
+            if lama is None:
+                ringkasan.append({
+                    "seri_kode": seri,
+                    "snapshot_lama": "",
+                    "snapshot_baru": baru,
+                    "baris_snapshot_lama": 0,
+                    "baris_snapshot_baru": len(terbaru),
+                    "nilai_sama": 0,
+                    "revisi": 0,
+                    "hanya_snapshot_lama": 0,
+                    "hanya_snapshot_baru": len(terbaru),
+                })
+                continue
+
+            sebelumnya = data_seri[data_seri["_snapshot"] == lama]
+            gabung = sebelumnya[kunci + ["nilai"]].merge(
+                terbaru[kunci + ["nilai"]],
+                on=kunci,
+                how="outer",
+                suffixes=("_lama", "_baru"),
+                indicator=True,
+                validate="one_to_one",
+            )
+            sama = gabung["_merge"].eq("both") & gabung["nilai_lama"].eq(gabung["nilai_baru"])
+            berubah = gabung["_merge"].eq("both") & ~sama
+            for _, baris in gabung[berubah].iterrows():
+                revisi.append({
+                    "seri_kode": seri,
+                    "wilayah_kode": baris["wilayah_kode"],
+                    "periode": baris["periode"],
+                    "rincian": baris["rincian"],
+                    "snapshot_lama": lama,
+                    "nilai_lama": baris["nilai_lama"],
+                    "snapshot_baru": baru,
+                    "nilai_baru": baris["nilai_baru"],
+                })
+            ringkasan.append({
+                "seri_kode": seri,
+                "snapshot_lama": lama,
+                "snapshot_baru": baru,
+                "baris_snapshot_lama": len(sebelumnya),
+                "baris_snapshot_baru": len(terbaru),
+                "nilai_sama": int(sama.sum()),
+                "revisi": int(berubah.sum()),
+                "hanya_snapshot_lama": int(gabung["_merge"].eq("left_only").sum()),
+                "hanya_snapshot_baru": int(gabung["_merge"].eq("right_only").sum()),
+            })
+
+    return pd.DataFrame(ringkasan), pd.DataFrame(
+        revisi,
+        columns=[
+            "seri_kode", "wilayah_kode", "periode", "rincian",
+            "snapshot_lama", "nilai_lama", "snapshot_baru", "nilai_baru",
+        ],
+    )
+
 
 def buat_silver():
     print("Memulai proses pembuatan Silver...")
@@ -66,9 +139,16 @@ def buat_silver():
     ]
     df_silver = df_silver[kolom_wajib]
     
-    # CSV dan JSON pada snapshot yang sama adalah salinan pengamatan yang sama.
+    df_silver["_snapshot"] = df_silver["_berkas_raw"].str.extract(
+        r"(\d{4}-\d{2}-\d{2})"
+    )
+    if df_silver["_snapshot"].isna().any():
+        raise ValueError("Tanggal snapshot tidak dapat ditentukan dari _berkas_raw.")
+
     awal = len(df_silver)
-    kunci_pengamatan = ['sumber', 'seri_kode', 'wilayah_kode', 'periode', 'rincian']
+    kunci_pengamatan = [
+        "sumber", "_snapshot", "seri_kode", "wilayah_kode", "periode", "rincian"
+    ]
     konflik = (
         df_silver.groupby(kunci_pengamatan, dropna=False)['nilai']
         .nunique(dropna=False)
@@ -76,21 +156,36 @@ def buat_silver():
     konflik = konflik[konflik > 1]
     if not konflik.empty:
         raise ValueError(
-            f"Nilai berbeda pada {len(konflik)} kunci pengamatan; "
-            "perlu rekonsiliasi sumber sebelum membentuk Silver."
+            f"CSV/JSON berbeda dalam {len(konflik)} kunci pada snapshot yang sama; "
+            "jangan deduplikasi sebelum sumber direkonsiliasi."
         )
+    df_silver["_format_json"] = df_silver["_berkas_raw"].str.endswith(".json").astype(int)
     df_silver = (
-        df_silver.sort_values('_berkas_raw')
+        df_silver.sort_values(["_format_json", "_berkas_raw"])
         .drop_duplicates(subset=kunci_pengamatan, keep='last')
+        .drop(columns=["_snapshot", "_format_json"])
     )
-    print(f"Membuang {awal - len(df_silver)} baris duplikat.")
+    print(
+        f"Membuang {awal - len(df_silver)} salinan lintas format dalam snapshot; "
+        "snapshot berbeda tetap dipertahankan."
+    )
+
+    df_silver["_snapshot"] = df_silver["_berkas_raw"].str.extract(
+        r"(\d{4}-\d{2}-\d{2})"
+    )
+    ringkasan, revisi = _ringkas_snapshot(df_silver)
+    df_silver = df_silver.drop(columns="_snapshot")
     
     # 4. Simpan ke Parquet
     os.makedirs("data/silver", exist_ok=True)
+    os.makedirs("reports/tables", exist_ok=True)
     output_path = "data/silver/silver.parquet"
     df_silver.to_parquet(output_path, index=False)
+    ringkasan.to_csv("reports/tables/perbandingan_snapshot.csv", index=False)
+    revisi.to_csv("reports/tables/revisi_snapshot.csv", index=False)
     
     print(f"Berhasil menyimpan {len(df_silver)} baris ke {output_path}")
+    print(f"Nilai yang berubah antar-snapshot dan dicatat sebagai revisi: {len(revisi)}")
 
 if __name__ == "__main__":
     buat_silver()

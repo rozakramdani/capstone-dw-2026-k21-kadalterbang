@@ -27,7 +27,7 @@ diperhatikan untuk kasus Anda. `data/raw/` tidak di-commit; anggota lain cukup m
 
 ```text
 unduh_data.py          milik starter — unduh paket kasus dari Release dan periksa sha256
-pipeline.py            satu perintah reproduksi: ekstraksi -> silver -> gold -> validasi
+pipeline.py            satu perintah reproduksi: ekstraksi -> silver -> profil -> grid panel
 src/common/            milik starter — jangan diubah: manifest (lineage sha256), skema (pemeriksa Silver),
                        hasil (results/<nim>/metrics.json untuk bukti artefak di Workbench)
 src/ekstraksi/         tahap 1: pembaca tiap format
@@ -72,6 +72,10 @@ reports/tim.md, reports/individu/<nim>.md, AI_LOG.md
   seri, menyimpan baris Indonesia secara terpisah, dan menulis matriks kelengkapan ke
   `reports/tables/matriks_ketersediaan_panel.csv`. Tahun sebelum seri terbit tidak dihitung sebagai
   missing.
+- **Snapshot dan anomali**: Silver menyimpan snapshot berbeda; salinan CSV/JSON hanya dideduplikasi
+  dalam snapshot yang sama. Profil mengategorikan setiap kandidat pada seluruh snapshot dan
+  menyimpan tanggal snapshot pada setiap baris; `reports/tables/revisi_snapshot.csv` mencatat
+  perubahan antar-snapshot.
 
 ## Pembagian peran yang disarankan
 

@@ -55,7 +55,10 @@ SERI = ("var1311", "var1312", "var1410", "var1831", "var2738", "var2740")
 
 def _baca_silver(path):
     df = pd.read_parquet(path)
-    wajib = {"seri_kode", "wilayah_kode", "nama_wilayah", "periode", "rincian", "nilai"}
+    wajib = {
+        "seri_kode", "wilayah_kode", "nama_wilayah", "periode", "rincian",
+        "nilai", "_berkas_raw",
+    }
     hilang = wajib - set(df.columns)
     if hilang:
         raise ValueError(f"Kolom Silver tidak lengkap: {sorted(hilang)}")
@@ -64,6 +67,11 @@ def _baca_silver(path):
     df["nama_wilayah"] = df["nama_wilayah"].astype(str).str.strip().str.upper()
     df["periode"] = df["periode"].astype(str).str.strip()
     df["nilai"] = pd.to_numeric(df["nilai"], errors="raise")
+    df["_snapshot"] = df["_berkas_raw"].str.extract(r"(\d{4}-\d{2}-\d{2})")
+    if df["_snapshot"].isna().any():
+        raise ValueError("Tanggal snapshot tidak dapat ditentukan dari _berkas_raw.")
+    terbaru_per_seri = df.groupby("seri_kode")["_snapshot"].transform("max")
+    df = df[df["_snapshot"] == terbaru_per_seri].drop(columns="_snapshot")
 
     kode_tidak_dikenal = set(df["wilayah_kode"]) - set(PROVINSI) - {KODE_INDONESIA}
     if kode_tidak_dikenal:

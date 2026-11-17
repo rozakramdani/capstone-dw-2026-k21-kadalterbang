@@ -45,7 +45,7 @@ def buat_silver():
     df_silver['nama_wilayah'] = df['wilayah']
     
     df_silver['seri_kode'] = df['var_id'].astype(str).str.replace(r'\.0$', '', regex=True).apply(lambda x: f"var{x}" if x != 'nan' else x)
-    df_silver['periode'] = df['periode'].astype(str)
+    df_silver['periode'] = df['tahun'].astype(str)
     
     # Perbaikan 3: panggil fungsi yang sudah diubah
     df_silver['jenis_periode'] = df_silver['periode'].apply(tentukan_jenis_periode)
@@ -66,11 +66,22 @@ def buat_silver():
     ]
     df_silver = df_silver[kolom_wajib]
     
-    # Perbaikan 4: Buang duplikat persis berdasarkan kunci unik standar
-    # (Sesuai panduan, duplikat dari _berkas_raw yang sama harus dibuang)
+    # CSV dan JSON pada snapshot yang sama adalah salinan pengamatan yang sama.
     awal = len(df_silver)
-    df_silver = df_silver.drop_duplicates(
-        subset=['sumber', 'seri_kode', 'wilayah_kode', 'periode', 'rincian', '_berkas_raw']
+    kunci_pengamatan = ['sumber', 'seri_kode', 'wilayah_kode', 'periode', 'rincian']
+    konflik = (
+        df_silver.groupby(kunci_pengamatan, dropna=False)['nilai']
+        .nunique(dropna=False)
+    )
+    konflik = konflik[konflik > 1]
+    if not konflik.empty:
+        raise ValueError(
+            f"Nilai berbeda pada {len(konflik)} kunci pengamatan; "
+            "perlu rekonsiliasi sumber sebelum membentuk Silver."
+        )
+    df_silver = (
+        df_silver.sort_values('_berkas_raw')
+        .drop_duplicates(subset=kunci_pengamatan, keep='last')
     )
     print(f"Membuang {awal - len(df_silver)} baris duplikat.")
     

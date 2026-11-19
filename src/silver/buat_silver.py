@@ -3,6 +3,7 @@ import os
 import re
 from src import ekstraksi
 from src.common.katalog import tentukan_katalog
+from src.common.skema import periksa_silver
 
 
 def tentukan_jenis_periode(periode_str):
@@ -132,9 +133,15 @@ def buat_silver():
     df_silver['jenis_periode'] = df_silver['periode'].apply(tentukan_jenis_periode)
     
     if 'turvar' in df.columns:
-        df_silver['rincian'] = df['turvar'].fillna('total').astype(str)
+        df_silver['rincian'] = (
+            df['turvar']
+            .fillna('Tidak ada')
+            .astype(str)
+            .str.strip()
+            .replace('', 'Tidak ada')
+        )
     else:
-        df_silver['rincian'] = 'total'
+        df_silver['rincian'] = 'Tidak ada'
         
     df_silver['nilai'] = pd.to_numeric(df['nilai'].astype(str).str.replace(',', '.'), errors='coerce')
     df_silver['satuan'] = df_silver['seri_kode'].apply(
@@ -185,7 +192,11 @@ def buat_silver():
     )
     ringkasan, revisi = _ringkas_snapshot(df_silver)
     df_silver = df_silver.drop(columns="_snapshot")
-    
+
+    kesalahan = periksa_silver(df_silver)
+    if kesalahan:
+        raise ValueError("Data Silver tidak lolos skema: " + "; ".join(kesalahan))
+
     # 4. Simpan ke Parquet
     os.makedirs("data/silver", exist_ok=True)
     os.makedirs("reports/tables", exist_ok=True)

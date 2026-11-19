@@ -43,6 +43,12 @@ results/<nim>/metrics.json   angka hasil komponen Anda: python -m src.common.has
 reports/tim.md, reports/individu/<nim>.md, AI_LOG.md
 ```
 
+Pemanggilan `src.common.hasil` menggabungkan metrik baru ke `metrik` yang sudah ada:
+kunci berbeda tetap dipertahankan, sedangkan kunci metrik yang sama diperbarui nilainya.
+Metadata `seed`, `data_hash`, dan `perangkat` diperbarui; `durasi_detik` lama dipertahankan
+jika durasi baru tidak diberikan. Berkas tidak menyimpan riwayat nilai lama untuk kunci yang
+diperbarui.
+
 ## Tahapan
 
 | Tahap | Pertemuan | Keluaran minimal |

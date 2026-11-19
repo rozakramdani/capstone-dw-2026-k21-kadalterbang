@@ -1,0 +1,9 @@
+seri_kode,sumber,nama_seri,kode_sdg,satuan
+var1311,bps,16.1.3 (a) Proporsi Penduduk Yang Menjadi Korban Kejahatan Kekerasan Dalam 12 Bulan Terakhir Menurut Provinsi,16.1.3,persen
+var1312,bps,16.1.4* Proporsi penduduk yang merasa aman berjalan sendirian di area tempat tinggalnya berdasarkan provinsi,16.1.4,persen
+var2738,bps,16.2.1 (a) Proporsi rumah tangga yang memiliki anak umur 1-17 tahun yang mengalami hukuman fisik dan/atau agresi psikologis dari pengasuh dalam setahun terakhir berdasarkan provinsi,16.2.1,persen
+var2740,bps,16.3.1.(a) Proporsi korban kekerasan dalam 12 bulan terakhir yang melaporkan kepada polisi berdasarkan provinsi,16.3.1,persen
+var1410,bps,Proporsi anak umur di bawah 5 tahun yang kelahirannya dicatat oleh lembaga pencatatan sipil Menurut Provinsi,16.9.1,persen
+var1831,bps,Persentase Anak Berumur 0-17 Tahun yang Memiliki Akta Kelahiran Menurut Provinsi,16.9.1,persen
+VC.IHR.PSRC.P5,wdi,"Intentional homicides (per 100,000 people)",16.1.1,per 100.000 penduduk
+SP.REG.BRTH.ZS,wdi,Completeness of birth registration (%),16.9.1,persen

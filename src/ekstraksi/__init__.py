@@ -12,6 +12,8 @@ from pathlib import Path
 
 import pandas as pd
 
+from src.common.katalog import tentukan_katalog
+
 from src.common.manifest import RAW, baca, sha256_raw
 
 _VAR_IDS = ("1311", "1312", "2738", "2740", "1410", "1831")
@@ -156,6 +158,15 @@ def _baca_wdi(path):
         if "indicator.id" not in tabel.columns:
             raise ValueError(f"Data WDI tidak memiliki indicator.id: {path}")
         tabel = tabel[tabel["indicator.id"].isin(_WDI_IDS)].reset_index(drop=True)
+        tabel["var_id"] = tabel["indicator.id"].astype(str)
+        tabel["satuan"] = tabel["indicator.id"].map(
+            lambda seri: tentukan_katalog(seri)["satuan"]
+        )
+        tabel["wilayah_id"] = 9999
+        tabel["wilayah"] = "Indonesia"
+        tabel["turvar"] = "total"
+        tabel["tahun"] = tabel["date"].astype(str)
+        tabel["nilai"] = pd.to_numeric(tabel["value"], errors="coerce")
     elif path.parent.name == "metadata" and "indikator" in path.stem:
         if "id" not in tabel.columns:
             raise ValueError(f"Metadata indikator WDI tidak memiliki id: {path}")

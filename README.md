@@ -27,7 +27,7 @@ diperhatikan untuk kasus Anda. `data/raw/` tidak di-commit; anggota lain cukup m
 
 ```text
 unduh_data.py          milik starter — unduh paket kasus dari Release dan periksa sha256
-pipeline.py            satu perintah reproduksi: ekstraksi -> silver -> gold -> validasi
+pipeline.py            satu perintah reproduksi: ekstraksi -> silver -> profil -> grid panel
 src/common/            milik starter — jangan diubah: manifest (lineage sha256), skema (pemeriksa Silver),
                        hasil (results/<nim>/metrics.json untuk bukti artefak di Workbench)
 src/ekstraksi/         tahap 1: pembaca tiap format
@@ -35,7 +35,8 @@ src/silver/            tahap 2–4: profil, pembersihan, penyeragaman
 src/gold/              tahap 4–6: reshape panel, integrasi pembanding, penyimpanan SQL
 src/skala/             tahap 7: arsip WDI 142 rilis (buat sendiri)
 src/validasi/          tahap 8: skema pandera/Great Expectations
-data/silver/, data/gold/   keluaran (boleh di-commit bila < 20 MB)
+data/silver/, data/gold/   keluaran (boleh di-commit bila < 20 MB); grid Tahap 3 tersedia di
+                           data/gold/grid_provinsi.parquet dengan baris Indonesia terpisah
 log-keputusan.csv      setiap keputusan wrangling: apa, alternatif yang ditolak, alasan, dampak baris
 docs/data-dictionary.md    kamus data Silver dan Gold
 results/<nim>/metrics.json   angka hasil komponen Anda: python -m src.common.hasil <nim> nama=angka ...
@@ -67,6 +68,14 @@ reports/tim.md, reports/individu/<nim>.md, AI_LOG.md
 - **Lineage**: `_sha256_raw` diambil dari `src.common.manifest.sha256_raw`, tidak ditulis tangan.
 - **Satu perintah**: `python pipeline.py` dari `data/raw/` yang baru diunduh harus menghasilkan
   ulang Silver dan Gold yang di-commit.
+- **Kelengkapan panel**: `python pipeline.py` membentuk grid 38 provinsi untuk tahun terbit tiap
+  seri, menyimpan baris Indonesia secara terpisah, dan menulis matriks kelengkapan ke
+  `reports/tables/matriks_ketersediaan_panel.csv`. Tahun sebelum seri terbit tidak dihitung sebagai
+  missing.
+- **Snapshot dan anomali**: Silver menyimpan snapshot berbeda; salinan CSV/JSON hanya dideduplikasi
+  dalam snapshot yang sama. Profil mengategorikan setiap kandidat pada seluruh snapshot dan
+  menyimpan tanggal snapshot pada setiap baris; `reports/tables/revisi_snapshot.csv` mencatat
+  perubahan antar-snapshot.
 
 ## Pembagian peran yang disarankan
 

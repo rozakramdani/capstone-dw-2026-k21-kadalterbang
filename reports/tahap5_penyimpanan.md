@@ -35,7 +35,10 @@ python -m src.silver.muat_silver_sql
 Pemuat memvalidasi skema Silver, mengganti isi tabel dalam satu transaksi, dan melaporkan
 jumlah baris yang dimuat. Berkas SQLite baku berada di
 `data/silver/silver.sqlite3` (tidak perlu di-commit; tabel dapat dibuat ulang dari
-Parquet). Uji 22 November 2026 berhasil dua kali berturut-turut: 2.002 baris dimuat,
-sesuai jumlah kunci unik, tanpa kunci duplikat. Angka ini berbeda dari ringkasan 1.988
-baris di `reports/stage3_panel.md`; laporan Tahap 3 perlu direkonsiliasi dengan Silver
-terkini.
+Parquet). Uji 22 November 2026 berhasil: 2.002 baris dimuat, sama dengan jumlah baris
+`silver.parquet`, tanpa kunci duplikat.
+
+Selisih dengan ringkasan 1.988 baris di `reports/stage3_panel.md` sudah ditelusuri:
+Silver berisi 1.988 baris BPS dan 14 baris WDI, sehingga totalnya 2.002. Laporan Tahap 3
+hanya menghitung seri BPS. Tidak ada baris yang hilang atau ganda. Keputusan pemilihan
+SQLite dicatat di `log-keputusan.csv` (K-023).

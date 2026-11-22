@@ -2,10 +2,35 @@
 
 Dokumen ini menjelaskan struktur tabel Silver berdasarkan data aktual. Tipe data, satuan, rentang nilai, jumlah data kosong, dan asal setiap kolom didokumentasikan untuk mendukung pemahaman serta keterlacakan data.
 
-## data/silver/silver.parquet
+## Silver Parquet dan SQL
 
-Jumlah baris: 1.988  
+<<<<<<< HEAD
+
+Jumlah baris Silver Parquet: 1.988  
 Jumlah kolom: 11
+
+### Struktur Tabel SQLite
+
+`data/silver/silver.parquet` adalah sumber muatan ke tabel SQLite `silver_observasi` dalam `data/silver/silver.sqlite3`.
+
+DDL sumber tabel ada di `src/silver/skema_silver.sql`. Semua kolom wajib (`NOT NULL`) dan kunci primer adalah gabungan `sumber, seri_kode, wilayah_kode, periode, rincian, _berkas_raw`.
+
+| Kolom | Tipe SQLite | Satuan/format | Boleh kosong | Rentang atau nilai sah | Asal (berkas/aturan) | Keterangan |
+|---|---|---|---|---|---|---|
+| sumber | TEXT | — | tidak | bps, bnpb, wdi, who_gho, ilostat | nama folder data/raw | Bagian kunci primer |
+| seri_kode | TEXT | — | tidak | kode katalog seri | var_id dan katalog | Bagian kunci primer |
+| wilayah_kode | INTEGER | kode BPS x 100 | tidak | 9999 atau 1100–9600 | pemetaan wilayah | Bagian kunci primer |
+| nama_wilayah | TEXT | — | tidak | nama wilayah sumber/standar | data mentah | |
+| periode | TEXT | YYYY, YYYY-Sn, YYYY-Qn, atau YYYY-MM | tidak | sesuai `jenis_periode` | tahun sumber | Bagian kunci primer |
+| jenis_periode | TEXT | — | tidak | tahun, semester, triwulan, bulan | aturan format periode | |
+| rincian | TEXT | label kategori | tidak | termasuk `Tidak ada` bila tanpa rincian | turvar atau default | Bagian kunci primer |
+| nilai | REAL | sesuai satuan | tidak | nilai numerik | nilai sumber | |
+| satuan | TEXT | — | tidak | sesuai katalog | katalog seri | |
+| _berkas_raw | TEXT | jalur relatif dari data/raw | tidak | berkas pada manifest | ekstraksi | Bagian kunci primer |
+| _sha256_raw | TEXT | SHA-256 heksadesimal | tidak | hash berkas sumber | manifest | Lineage |
+
+### Struktur Silver Parquet
+>>>>>>> dd155c1bf8b29b762042b01bac1aa1975c04da2c
 
 | Kolom | Tipe | Satuan/format | Boleh kosong | Rentang atau nilai sah | Asal (berkas/aturan) | Keterangan |
 |---|---|---|---|---|---|---|

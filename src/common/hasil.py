@@ -34,11 +34,21 @@ def data_hash(raw=RAW):
 def tulis_hasil(nim, metrik, seed=0, durasi_detik=None, raw=RAW):
     if not metrik or not all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in metrik.values()):
         raise ValueError("metrik harus berisi minimal satu angka, dan semua nilainya angka")
-    isi = {"metrik": metrik, "seed": int(seed), "data_hash": data_hash(raw),
-           "perangkat": f"{platform.system()} {platform.machine()} Python {platform.python_version()}"}
+    tujuan = ROOT / "results" / str(nim) / "metrics.json"
+    if tujuan.exists():
+        isi = json.loads(tujuan.read_text(encoding="utf-8"))
+        if not isinstance(isi, dict) or not isinstance(isi.get("metrik"), dict):
+            raise ValueError(f"Format metrics.json tidak valid: {tujuan}")
+        isi["metrik"].update(metrik)
+    else:
+        isi = {"metrik": metrik}
+    isi.update({
+        "seed": int(seed),
+        "data_hash": data_hash(raw),
+        "perangkat": f"{platform.system()} {platform.machine()} Python {platform.python_version()}",
+    })
     if durasi_detik is not None:
         isi["durasi_detik"] = round(float(durasi_detik), 2)
-    tujuan = ROOT / "results" / str(nim) / "metrics.json"
     tujuan.parent.mkdir(parents=True, exist_ok=True)
     tujuan.write_text(json.dumps(isi, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return tujuan

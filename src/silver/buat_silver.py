@@ -2,6 +2,8 @@ import pandas as pd
 import os
 import re
 from src import ekstraksi
+from src.common.katalog import tentukan_katalog
+from src.common.skema import periksa_silver
 
 
 def tentukan_jenis_periode(periode_str):
@@ -117,19 +119,34 @@ def buat_silver():
     df_silver['wilayah_kode'] = pd.to_numeric(wilayah_bersih, errors='coerce').astype('Int64')
     df_silver['nama_wilayah'] = df['wilayah']
     
-    df_silver['seri_kode'] = df['var_id'].astype(str).str.replace(r'\.0$', '', regex=True).apply(lambda x: f"var{x}" if x != 'nan' else x)
+    def tentukan_seri_kode(var_id):
+        kode = str(var_id).strip()
+        kode = re.sub(r'\.0$', '', kode)
+        return kode if kode.startswith("VC.") or kode.startswith("SP.") else (
+            f"var{kode}" if kode != "nan" else kode
+        )
+
+    df_silver['seri_kode'] = df['var_id'].apply(tentukan_seri_kode)
     df_silver['periode'] = df['tahun'].astype(str)
     
     # Perbaikan 3: panggil fungsi yang sudah diubah
     df_silver['jenis_periode'] = df_silver['periode'].apply(tentukan_jenis_periode)
     
     if 'turvar' in df.columns:
-        df_silver['rincian'] = df['turvar'].fillna('total').astype(str)
+        df_silver['rincian'] = (
+            df['turvar']
+            .fillna('Tidak ada')
+            .astype(str)
+            .str.strip()
+            .replace('', 'Tidak ada')
+        )
     else:
-        df_silver['rincian'] = 'total'
+        df_silver['rincian'] = 'Tidak ada'
         
     df_silver['nilai'] = pd.to_numeric(df['nilai'].astype(str).str.replace(',', '.'), errors='coerce')
-    df_silver['satuan'] = df['satuan'].fillna('tidak diketahui').astype(str)
+    df_silver['satuan'] = df_silver['seri_kode'].apply(
+        lambda seri: tentukan_katalog(seri, "tidak_ada")["satuan"]
+    )
     
     # Pastikan urutan kolom sesuai standar
     kolom_wajib = [
@@ -175,7 +192,11 @@ def buat_silver():
     )
     ringkasan, revisi = _ringkas_snapshot(df_silver)
     df_silver = df_silver.drop(columns="_snapshot")
-    
+
+    kesalahan = periksa_silver(df_silver)
+    if kesalahan:
+        raise ValueError("Data Silver tidak lolos skema: " + "; ".join(kesalahan))
+
     # 4. Simpan ke Parquet
     os.makedirs("data/silver", exist_ok=True)
     os.makedirs("reports/tables", exist_ok=True)

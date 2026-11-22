@@ -54,7 +54,12 @@ def profil_pembanding():
             continue
             
         tahun_unik = sorted(data_seri['tahun'].dropna().unique())
-        satuan = data_seri['unit'].iloc[0] if 'unit' in data_seri.columns else "Tidak diketahui"
+        if 'satuan' in data_seri.columns:
+            satuan = data_seri['satuan'].iloc[0]
+        elif 'unit' in data_seri.columns:
+            satuan = data_seri['unit'].iloc[0] or "tidak_ada"
+        else:
+            satuan = "tidak_ada"
         
         # WDI biasanya tidak punya rincian sex/age untuk indikator ini (hanya total nasional)
         ketersediaan.append({

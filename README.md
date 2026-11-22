@@ -43,6 +43,12 @@ results/<nim>/metrics.json   angka hasil komponen Anda: python -m src.common.has
 reports/tim.md, reports/individu/<nim>.md, AI_LOG.md
 ```
 
+Pemanggilan `src.common.hasil` menggabungkan metrik baru ke `metrik` yang sudah ada:
+kunci berbeda tetap dipertahankan, sedangkan kunci metrik yang sama diperbarui nilainya.
+Metadata `seed`, `data_hash`, dan `perangkat` diperbarui; `durasi_detik` lama dipertahankan
+jika durasi baru tidak diberikan. Berkas tidak menyimpan riwayat nilai lama untuk kunci yang
+diperbarui.
+
 ## Tahapan
 
 | Tahap | Pertemuan | Keluaran minimal |
@@ -68,6 +74,9 @@ reports/tim.md, reports/individu/<nim>.md, AI_LOG.md
 - **Lineage**: `_sha256_raw` diambil dari `src.common.manifest.sha256_raw`, tidak ditulis tangan.
 - **Satu perintah**: `python pipeline.py` dari `data/raw/` yang baru diunduh harus menghasilkan
   ulang Silver dan Gold yang di-commit.
+- **Tahap 5 SQL**: `python -m src.silver.muat_silver_sql` memuat Silver Parquet ke tabel
+  SQLite bertipe eksplisit; alasan pemilihan dan perbandingan dengan JSON dicatat di
+  `reports/tahap5_penyimpanan.md`.
 - **Kelengkapan panel**: `python pipeline.py` membentuk grid 38 provinsi untuk tahun terbit tiap
   seri, menyimpan baris Indonesia secara terpisah, dan menulis matriks kelengkapan ke
   `reports/tables/matriks_ketersediaan_panel.csv`. Tahun sebelum seri terbit tidak dihitung sebagai

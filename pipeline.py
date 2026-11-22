@@ -7,6 +7,8 @@ Keluaran: Silver ber-lineage snapshot, profil semua snapshot, dan grid panel sna
 """
 import sys
 
+import pandas as pd
+from src.validasi import jalankan as jalankan_validasi
 from src import ekstraksi
 from src.common.manifest import baca, periksa
 from src.gold.grid_provinsi import bentuk_grid
@@ -45,6 +47,9 @@ def main():
         f"sel kosong pada tahun terbit: {int(matriks['sel_kosong'].sum())}"
     )
 
+    silver = pd.read_parquet("data/silver/silver.parquet")
+    hasil_validasi = jalankan_validasi(silver, grid)
+    print(f"Hasil validasi: {hasil_validasi}")
 
 if __name__ == "__main__":
     main()

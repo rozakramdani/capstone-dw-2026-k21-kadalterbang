@@ -1,7 +1,7 @@
 # Laporan Validasi Silver dan Gold
 
-- Jumlah baris Silver: 1988
-- Jumlah seri Silver: 6
+- Jumlah baris Silver: 2002
+- Jumlah seri Silver: 8
 - Jumlah aturan: 6
 - Aturan lolos: 6
 

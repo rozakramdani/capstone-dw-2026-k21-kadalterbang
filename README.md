@@ -85,6 +85,11 @@ diperbarui.
   dalam snapshot yang sama. Profil mengategorikan setiap kandidat pada seluruh snapshot dan
   menyimpan tanggal snapshot pada setiap baris; `reports/tables/revisi_snapshot.csv` mencatat
   perubahan antar-snapshot.
+- **Pemilihan Gold**: `src/gold/grid_provinsi.py` memilih snapshot terbaru per seri, satu rincian
+  panel yang dikonfigurasi, serta satu baris per provinsi-tahun-seri. Periode sub-tahunan tetap di
+  Silver dan tidak masuk panel tahunan; flag kandidat anomali dan patahan dibawa ke Gold. Baris
+  yang tidak dipilih dan ringkasannya ditulis di log keputusan dan
+  `reports/tables/pemilihan_gold.csv`.
 
 ## Pembagian peran yang disarankan
 

@@ -3,7 +3,7 @@
     python unduh_data.py --kasus <N>     # sekali, isi data/raw/
     python pipeline.py
 
-Keluaran: Silver ber-lineage snapshot, profil semua snapshot, dan grid panel snapshot terbaru.
+Keluaran: Silver ber-lineage snapshot, profil semua snapshot, pemilihan Gold, dan grid panel tahunan.
 """
 import sys
 
@@ -41,10 +41,19 @@ def main():
 
     buat_silver()
     jalankan_profiling()
-    grid, indonesia, matriks = bentuk_grid()
+    grid, indonesia, matriks, ringkasan = bentuk_grid()
+    baris_tidak_dipilih = sum(
+        ringkasan[kunci]
+        for kunci in (
+            "baris_snapshot_lama_tidak_dipilih",
+            "baris_rincian_tidak_dipilih",
+            "baris_subtahunan_tidak_dipilih",
+        )
+    )
     print(
         f"grid provinsi: {len(grid)} sel; Indonesia terpisah: {len(indonesia)} baris; "
-        f"sel kosong pada tahun terbit: {int(matriks['sel_kosong'].sum())}"
+        f"sel kosong pada tahun terbit: {int(matriks['sel_kosong'].sum())}; "
+        f"baris Silver tidak terpilih: {baris_tidak_dipilih}"
     )
 
     silver = pd.read_parquet("data/silver/silver.parquet")

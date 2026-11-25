@@ -40,7 +40,9 @@ provinsi-tahun.
 
 ## Snapshot, anomali, dan patahan
 
-Silver menyimpan 1.988 baris setelah menghapus salinan CSV/JSON dalam snapshot yang sama.
+Silver menyimpan 1.988 baris BPS untuk enam seri utama setelah menghapus salinan CSV/JSON dalam
+snapshot yang sama. Silver keseluruhan juga memuat 14 baris WDI pembanding, sehingga totalnya 2.002
+baris; rincian integrasi ada di `reports/tahap5_penyimpanan.md`.
 Pengamatan pada tanggal snapshot berbeda tetap dipertahankan sekalipun nilainya sama; jika nilainya
 berbeda, keduanya dicatat sebagai revisi. Empat seri yang tersedia pada 17 dan 20 Oktober memiliki
 632 observasi sama dan 0 nilai berubah. `var1410` dan `var1831` hanya tersedia pada snapshot

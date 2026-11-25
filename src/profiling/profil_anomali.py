@@ -24,7 +24,10 @@ def _baca_snapshot(path):
     if df["_snapshot"].isna().any():
         raise ValueError("Tanggal snapshot tidak dapat ditentukan dari _berkas_raw.")
     df = df[df["wilayah_kode"] != "9999"].copy()
-    df["periode"] = pd.to_numeric(df["periode"], errors="raise").astype(int)
+    df["periode"] = df["periode"].astype(str).str.strip()
+    df["_tahun"] = pd.to_numeric(
+        df["periode"].str.extract(r"^(\d{4})")[0], errors="raise"
+    ).astype(int)
     df["nilai"] = pd.to_numeric(df["nilai"], errors="raise")
     if df.duplicated(
         ["seri_kode", "_snapshot", "wilayah_kode", "periode", "rincian"]
@@ -36,7 +39,12 @@ def _baca_snapshot(path):
 def _patahan_seri(df):
     hasil = []
     for (seri, snapshot), data in df.groupby(["seri_kode", "_snapshot"]):
-        panel = data.pivot(index="periode", columns="wilayah_kode", values="nilai").sort_index()
+        panel = (
+            data.groupby(["_tahun", "wilayah_kode"])["nilai"]
+            .mean()
+            .unstack()
+            .sort_index()
+        )
         for tahun in panel.index:
             if tahun - 1 not in panel.index:
                 continue
@@ -99,7 +107,7 @@ def _profil_satu_seri(seri, snapshot, data_seri, patahan):
         if std > 0 and abs(row["nilai"] - mean) > 3 * std:
             alasan.append("Z-Score")
 
-        if row["periode"] in tahun_patahan:
+        if row["_tahun"] in tahun_patahan:
             kategori = "patahan_seri"
             penjelasan = (
                 "Nilai berada pada tahun dengan lonjakan serentak antarprovinsi; "
@@ -122,6 +130,7 @@ def _profil_satu_seri(seri, snapshot, data_seri, patahan):
             "wilayah_kode": row["wilayah_kode"],
             "nama_wilayah": row["nama_wilayah"],
             "periode": row["periode"],
+            "rincian": row["rincian"],
             "nilai": row["nilai"],
             "snapshot": snapshot,
             "alasan": ", ".join(alasan),

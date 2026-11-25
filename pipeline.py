@@ -47,7 +47,7 @@ def main():
         for kunci in (
             "baris_snapshot_lama_tidak_dipilih",
             "baris_rincian_tidak_dipilih",
-            "baris_subtahunan_diganti_tahunan",
+            "baris_subtahunan_tidak_dipilih",
         )
     )
     print(

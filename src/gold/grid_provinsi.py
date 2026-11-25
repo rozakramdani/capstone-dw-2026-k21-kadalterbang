@@ -202,23 +202,8 @@ def pilih_observasi_gold(
         )
     ]
 
-    kunci_tahun = ["seri_kode", "wilayah_kode", "_tahun"]
-    ada_tahunan = set(
-        map(
-            tuple,
-            data.loc[data["jenis_periode"] == "tahun", kunci_tahun].itertuples(
-                index=False, name=None
-            ),
-        )
-    )
-    tahunan_diprioritaskan = [
-        jenis != "tahun" and tuple(kunci) in ada_tahunan
-        for jenis, kunci in zip(
-            data["jenis_periode"], data[kunci_tahun].itertuples(index=False, name=None)
-        )
-    ]
-    baris_periode_tidak_dipilih = int(sum(tahunan_diprioritaskan))
-    data = data.loc[[not pilih for pilih in tahunan_diprioritaskan]].copy()
+    baris_subtahunan_tidak_dipilih = int((data["jenis_periode"] != "tahun").sum())
+    data = data[data["jenis_periode"] == "tahun"].copy()
     jumlah_periode_sumber = len(data)
 
     grup_kunci = ["seri_kode", "wilayah_kode", "_tahun"]
@@ -261,7 +246,7 @@ def pilih_observasi_gold(
         "baris_silver_seri_kasus": jumlah_silver,
         "baris_snapshot_lama_tidak_dipilih": baris_snapshot_tidak_dipilih,
         "baris_rincian_tidak_dipilih": baris_rincian_tidak_dipilih,
-        "baris_subtahunan_diganti_tahunan": baris_periode_tidak_dipilih,
+        "baris_subtahunan_tidak_dipilih": baris_subtahunan_tidak_dipilih,
         "baris_periode_sumber_digabungkan": jumlah_periode_sumber - len(terpilih),
         "baris_gold_observasi": len(terpilih),
         "baris_kandidat_anomali_gold": int(terpilih["flag_kandidat_anomali"].sum()),

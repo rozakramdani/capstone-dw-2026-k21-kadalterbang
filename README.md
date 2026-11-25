@@ -86,9 +86,9 @@ diperbarui.
   menyimpan tanggal snapshot pada setiap baris; `reports/tables/revisi_snapshot.csv` mencatat
   perubahan antar-snapshot.
 - **Pemilihan Gold**: `src/gold/grid_provinsi.py` memilih snapshot terbaru per seri, satu rincian
-  panel yang dikonfigurasi, serta satu baris per provinsi-tahun-seri. Periode sub-tahunan dirata-rata
-  ke tahun bila tidak tersedia nilai tahunan langsung; flag kandidat anomali dan patahan dibawa ke
-  Gold. Baris yang tidak dipilih dan ringkasannya ditulis di log keputusan dan
+  panel yang dikonfigurasi, serta satu baris per provinsi-tahun-seri. Periode sub-tahunan tetap di
+  Silver dan tidak masuk panel tahunan; flag kandidat anomali dan patahan dibawa ke Gold. Baris
+  yang tidak dipilih dan ringkasannya ditulis di log keputusan dan
   `reports/tables/pemilihan_gold.csv`.
 
 ## Pembagian peran yang disarankan

@@ -13,11 +13,11 @@ dicatat pada K-024–K-027 di `log-keputusan.csv`; hitungan aktual juga ditulis 
 2. **Rincian:** panel memilih rincian `Tidak ada` untuk `var1311`, `var1312`, `var1410`, `var1831`,
    `var2738`, dan `var2740`. Rincian lain tetap di Silver, tidak dijadikan baris indikator Gold.
    Jika rincian panel yang ditetapkan tidak ditemukan, pipeline berhenti dengan error.
-3. **Periode:** nilai tahunan dipertahankan langsung. Jika hanya tersedia periode semesteran,
-   triwulanan, atau bulanan, Gold menggunakan rerata aritmetika periode yang tersedia untuk
-   provinsi-tahun tersebut; subperiode kosong tidak diimputasi. Jika tersedia nilai tahunan dan
-   sub-tahunan sekaligus, nilai tahunan diprioritaskan. Sumber dan jumlah periode penyusun
-   dipertahankan pada kolom `periode_sumber` dan `jumlah_periode_sumber`.
+3. **Periode:** Gold panel kasus ini tahunan. Nilai tahunan dipertahankan langsung; observasi
+   semesteran, triwulanan, atau bulanan tetap di Silver dan tidak masuk panel tahunan. Nilai tersebut
+   tidak dirata-ratakan atau dijumlahkan, sesuai keputusan katalog K-022. Karena tiap sel Gold hanya
+   berasal dari satu baris tahunan, kolom `periode_sumber` dan `jumlah_periode_sumber` menjaga
+   keterlacakan periode sumber.
 4. **Flagging:** kategori kandidat, `flag_outlier`, `flag_galat_input`, dan `flag_patahan_seri`
    dibawa ke Gold. Tahun patahan ditandai pada seluruh observasi wilayah terkait, tanpa menghapus
    nilai. Kolom `flag_kandidat_anomali` menandai baris kandidat yang diprofilkan.
@@ -32,7 +32,7 @@ dicatat pada K-024–K-027 di `log-keputusan.csv`; hitungan aktual juga ditulis 
   snapshot terbaru menjadi masukan Gold. Empat belas baris WDI pembanding tetap di Silver dan tidak
   masuk panel provinsi.
 - Semua seri saat ini hanya memiliki rincian `Tidak ada`: **0 baris** dikeluarkan karena rincian.
-- Data periode kasus seluruhnya tahunan: **0 baris** dikeluarkan karena prioritas tahunan dan
+- Data periode kasus seluruhnya tahunan: **0 baris** sub-tahunan dikeluarkan dari panel Gold dan
   **0 baris** periode sub-tahunan digabung.
 - Grid panel memiliki 1.558 sel, termasuk 243 sel kosong. Sebanyak 41 agregat Indonesia tersimpan
   terpisah.

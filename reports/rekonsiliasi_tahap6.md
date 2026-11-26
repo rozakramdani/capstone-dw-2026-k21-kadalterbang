@@ -2,10 +2,20 @@
 
 ## Tabel nasional periode × seri
 
-`reports/tables/rekonsiliasi_nasional.csv` berisi baris Indonesia (`wilayah_kode=9999`)
-dari `data/silver/silver.parquet`, satu baris per periode dan seri. Tabel mencakup enam
-seri utama BPS dan dua seri pembanding WDI. Untuk tiap seri dipakai snapshot terbaru yang
-ada di Silver; berkas mentah dan SHA-256 tetap dicatat di setiap baris.
+`data/gold/tabel_nasional.parquet` berisi satu baris per periode dan seri untuk enam seri
+utama BPS dan dua seri pembanding WDI. Pipeline memilih snapshot terbaru per seri. Nilai
+terbitan langsung memakai baris Indonesia (`wilayah_kode=9999`); `asal_nilai` menjelaskan
+asal tiap angka. Jika BPS memiliki data provinsi pada periode tanpa baris Indonesia, nilai
+nasional dibiarkan kosong dan `asal_nilai` menyatakan bahwa tidak ada padanan nasional
+terbitan untuk periode itu. Proporsi tidak dirata-ratakan karena bobot/penyebut populasi atau
+kelompok sasaran yang sesuai tidak tersedia di Silver. Setiap baris mempertahankan
+`_berkas_raw` dan `_sha256_raw`.
+
+Pada snapshot saat ini terdapat 55 baris (41 BPS dan 14 WDI); semuanya memiliki
+baris nasional langsung, sehingga tidak ada nilai kosong atau agregasi provinsi.
+
+`reports/tables/rekonsiliasi_nasional.csv` adalah hasil rekonsiliasi Sprint 1 yang menjadi
+bukti perbandingan. Tabel Gold sekarang dibuat ulang dari Silver oleh `pipeline.py`.
 
 Nilai kosong pada sumber WDI tidak menjadi observasi dan karena itu tidak ditambahkan.
 Periode irisan di bawah dihitung dari tahun dengan nilai nasional teramati pada kedua seri,

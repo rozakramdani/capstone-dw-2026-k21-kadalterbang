@@ -11,6 +11,7 @@ from src import ekstraksi
 from src.common.manifest import baca, periksa
 from src.gold.panel_provinsi import bentuk_panel_provinsi
 from src.gold.tabel_nasional import bentuk_tabel_nasional
+from src.gold.muat_sql import muat as muat_sql
 from src.profiling.profil_anomali import jalankan_profiling
 from src.silver.buat_silver import buat_silver
 
@@ -42,6 +43,7 @@ def main():
     jalankan_profiling()
     grid, indonesia, matriks, ringkasan = bentuk_panel_provinsi()
     nasional = bentuk_tabel_nasional()
+    jumlah_sql = muat_sql()
     print(
         f"panel Gold: {len(grid)} baris ({int(grid['tersedia'].sum())} terisi); "
         f"Indonesia terpisah: {len(indonesia)} baris; "
@@ -49,6 +51,10 @@ def main():
         f"observasi Gold: {ringkasan['baris_gold_observasi']}; "
         f"tabel nasional: {len(nasional)} baris "
         f"({int(nasional['nilai'].notna().sum())} nilai nasional terbit)"
+    )
+    print(
+        "SQLite: "
+        + ", ".join(f"{tabel}={jumlah:,}" for tabel, jumlah in jumlah_sql.items())
     )
 
 if __name__ == "__main__":

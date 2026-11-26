@@ -27,12 +27,12 @@ diperhatikan untuk kasus Anda. `data/raw/` tidak di-commit; anggota lain cukup m
 
 ```text
 unduh_data.py          milik starter — unduh paket kasus dari Release dan periksa sha256
-pipeline.py            satu perintah reproduksi: ekstraksi -> silver -> profil -> grid panel
+pipeline.py            satu perintah reproduksi: ekstraksi -> silver -> profil -> Gold nasional dan grid panel
 src/common/            milik starter — jangan diubah: manifest (lineage sha256), skema (pemeriksa Silver),
                        hasil (results/<nim>/metrics.json untuk bukti artefak di Workbench)
 src/ekstraksi/         tahap 1: pembaca tiap format
 src/silver/            tahap 2–4: profil, pembersihan, penyeragaman
-src/gold/              tahap 4–6: reshape panel, integrasi pembanding, penyimpanan SQL
+src/gold/              tahap 4–6: reshape panel, tabel nasional/pembanding, penyimpanan SQL
 src/skala/             tahap 7: arsip WDI 142 rilis (buat sendiri)
 src/validasi/          tahap 8: skema pandera/Great Expectations
 data/silver/, data/gold/   keluaran (boleh di-commit bila < 20 MB); grid Tahap 3 tersedia di
@@ -81,6 +81,11 @@ diperbarui.
   seri, menyimpan baris Indonesia secara terpisah, dan menulis matriks kelengkapan ke
   `reports/tables/matriks_ketersediaan_panel.csv`. Tahun sebelum seri terbit tidak dihitung sebagai
   missing.
+- **Tabel nasional Tahap 6**: pipeline membuat `data/gold/tabel_nasional.parquet`, satu baris
+  per periode-seri untuk enam indikator utama BPS dan dua pembanding WDI. Kolom `asal_nilai`
+  membedakan nilai Indonesia yang diterbitkan langsung dari periode tanpa padanan nasional;
+  periode tanpa baris Indonesia tidak diagregasi dari provinsi karena bobot/penyebut yang sesuai
+  tidak tersedia. Semua baris membawa `_berkas_raw` dan `_sha256_raw`.
 - **Snapshot dan anomali**: Silver menyimpan snapshot berbeda; salinan CSV/JSON hanya dideduplikasi
   dalam snapshot yang sama. Profil mengategorikan setiap kandidat pada seluruh snapshot dan
   menyimpan tanggal snapshot pada setiap baris; `reports/tables/revisi_snapshot.csv` mencatat

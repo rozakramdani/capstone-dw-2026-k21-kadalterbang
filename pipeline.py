@@ -10,6 +10,7 @@ import sys
 from src import ekstraksi
 from src.common.manifest import baca, periksa
 from src.gold.panel_provinsi import bentuk_panel_provinsi
+from src.gold.tabel_nasional import bentuk_tabel_nasional
 from src.profiling.profil_anomali import jalankan_profiling
 from src.silver.buat_silver import buat_silver
 
@@ -40,11 +41,14 @@ def main():
     buat_silver()
     jalankan_profiling()
     grid, indonesia, matriks, ringkasan = bentuk_panel_provinsi()
+    nasional = bentuk_tabel_nasional()
     print(
         f"panel Gold: {len(grid)} baris ({int(grid['tersedia'].sum())} terisi); "
         f"Indonesia terpisah: {len(indonesia)} baris; "
         f"sel kosong pada tahun terbit: {int(matriks['sel_kosong'].sum())}; "
-        f"observasi Gold: {ringkasan['baris_gold_observasi']}"
+        f"observasi Gold: {ringkasan['baris_gold_observasi']}; "
+        f"tabel nasional: {len(nasional)} baris "
+        f"({int(nasional['nilai'].notna().sum())} nilai nasional terbit)"
     )
 
 if __name__ == "__main__":

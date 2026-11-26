@@ -1,10 +1,15 @@
 # Tahap 4 — Aturan pemilihan Gold
 
 Fungsi `pilih_observasi_gold` di `src/gold/grid_provinsi.py` dipanggil melalui
-`bentuk_grid` oleh `pipeline.py`. Ia memilih satu observasi untuk setiap indikator, wilayah, dan
-tahun sebelum membentuk grid provinsi lengkap. Aturan dan jumlah baris Silver yang tidak terpilih
-dicatat pada K-024–K-027 di `log-keputusan.csv`; hitungan aktual juga ditulis ke
+`bentuk_panel_provinsi` oleh `pipeline.py`. Ia memilih satu observasi untuk setiap indikator,
+wilayah, dan tahun sebelum membentuk panel provinsi lengkap. Aturan dan jumlah baris Silver yang
+tidak terpilih dicatat pada K-024–K-027 di `log-keputusan.csv`; hitungan aktual juga ditulis ke
 `reports/tables/pemilihan_gold.csv`.
+
+Panel disimpan sebagai `data/gold/panel_provinsi.parquet`; matriks ketersediaan disimpan terpisah
+sebagai `data/gold/matriks_ketersediaan_panel.parquet` dan salinan CSV untuk laporan. Nilai
+`nilai` dipertahankan dari Silver tanpa transformasi numerik; keenam seri memakai satuan `persen`.
+Setiap sel terisi membawa periode, rincian, berkas sumber, dan SHA-256 untuk penelusuran.
 
 ## Aturan
 

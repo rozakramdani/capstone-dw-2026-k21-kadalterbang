@@ -5,7 +5,9 @@
     "format": 2,
     "seri_silver": 8,
     "rincian_dienkode": 0,
-    "baris_silver": 2002
+    "baris_silver": 2002,
+    "seri_panel": 6,
+    "baris_gold": 1558
   },
   "seed": 0,
   "data_hash": "276b0c23b917ce9de2af5cf958ce1e192aa493510705369465f53408bbcc972e",

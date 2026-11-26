@@ -74,9 +74,10 @@ diperbarui.
 - **Lineage**: `_sha256_raw` diambil dari `src.common.manifest.sha256_raw`, tidak ditulis tangan.
 - **Satu perintah**: `python pipeline.py` dari `data/raw/` yang baru diunduh harus menghasilkan
   ulang Silver dan Gold yang di-commit.
-- **Tahap 5 SQL**: `python -m src.silver.muat_silver_sql` memuat Silver Parquet ke tabel
-  SQLite bertipe eksplisit; alasan pemilihan dan perbandingan dengan JSON dicatat di
-  `reports/tahap5_penyimpanan.md`.
+- **Tahap 5 SQL**: `python pipeline.py` juga memuat Silver, panel Gold, tabel nasional, dan
+  rekonsiliasi ke `data/gold/warehouse.sqlite3` dengan DDL bertipe eksplisit di
+  `src/gold/skema_sql.sql`; basis data ini diabaikan Git dan dapat dibangun ulang. Alasan
+  pemilihan serta perbandingan dengan JSON dicatat di `reports/tim.md` bagian Data dan lineage.
 - **Kelengkapan panel**: `python pipeline.py` membentuk grid 38 provinsi untuk tahun terbit tiap
   seri, menyimpan baris Indonesia secara terpisah, dan menulis matriks kelengkapan ke
   `reports/tables/matriks_ketersediaan_panel.csv`. Tahun sebelum seri terbit tidak dihitung sebagai

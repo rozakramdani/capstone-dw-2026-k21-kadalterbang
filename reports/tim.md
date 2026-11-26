@@ -33,6 +33,32 @@ Snapshot mentah yang tersedia adalah paket Oktober 2026; tidak ada catatan penar
 independen dari snapshot tersebut. Atribusi data mengikuti `data/LISENSI.md`: Badan Pusat Statistik
 dan World Bank, World Development Indicators. Lisensi basis data turunan mengikuti ODbL 1.0.
 
+### Penyimpanan SQL dan lineage
+
+`python pipeline.py` memuat empat tabel SQLite ke `data/gold/warehouse.sqlite3` setelah seluruh
+Parquet dan tabel rekonsiliasi terbentuk. DDL bertipe eksplisit ada di `src/gold/skema_sql.sql`:
+`silver_observasi` (PK sumber-seri-wilayah-periode-rincian-berkas), `panel_provinsi` (PK
+wilayah-periode-seri), `tabel_nasional` dan `rekonsiliasi_nasional` (PK periode-seri).
+Panel menyimpan nilai kosong sebagai SQL `NULL` dan flag ketersediaan/anomali sebagai integer
+boolean. Setiap pemuatan mengganti isi tabel dalam satu transaksi dan memverifikasi jumlah baris
+SQL terhadap artefak sumbernya.
+
+Pada keluaran kasus ini, SQLite memuat 2.002 baris Silver, 1.558 baris panel Gold, 55 baris
+tabel nasional, dan 55 baris rekonsiliasi; jumlah setiap tabel sama dengan Parquet Silver/panel/
+tabel nasional atau CSV rekonsiliasi yang bersangkutan. SQLite cocok untuk skala proyek dan
+pipeline lokal karena tidak membutuhkan server dan dapat direproduksi dengan pustaka standar.
+Tabel bertipe dan PK eksplisit memudahkan pemeriksaan kunci, konsistensi tipe, serta kueri
+lintas seri/wilayah/periode; DuckDB lebih tepat bila prioritasnya analitik kolumnar besar atau
+kueri langsung Parquet, sedangkan PostgreSQL lebih sesuai untuk banyak penulis dan layanan
+bersamaan.
+
+JSON mentah tetap dipertahankan sebagai Bronze karena mempertahankan bentuk respons dan metadata
+asli saat format sumber berubah. Namun, skema JSON yang bervariasi tidak memberi batasan tipe dan
+kunci relasional setegas SQL, sehingga kurang praktis untuk validasi dan analisis tabel. Pilihan
+ini sengaja berlapis: dokumen mentah untuk arsip/lineage, SQL bertipe untuk Silver dan Gold yang
+telah dinormalisasi. Berkas SQLite merupakan keluaran turunan, tidak di-commit; tabel dapat
+dibangun ulang dari artefak repo dan data mentah.
+
 ## Masalah data dan penanganannya
 
 ### Celah panel
@@ -131,10 +157,10 @@ Rozak melaporkan 26 berkas cocok dan 4.261 baris mentah saat pipeline dijalankan
 wajib, kunci, tipe nilai, format periode, dan lineage manifest.
 
 Validasi tersebut adalah pemeriksaan skema Silver, bukan validasi Pandera/Great Expectations.
-Durasi pipeline dari nol tidak dicatat. Belum ada hasil benchmark Pandas vs DuckDB/Dask, database
-SQL Silver/Gold, atau pemrosesan arsip WDI 142 rilis di keluaran repo; ketiganya tetap perlu
-dikerjakan/didokumentasikan. `docs/data-dictionary.md` juga masih berupa kerangka dan perlu
-dilengkapi dengan tipe, rentang, serta aturan kolom aktual.
+Durasi pipeline dari nol tidak dicatat. Belum ada hasil benchmark Pandas vs DuckDB/Dask atau
+pemrosesan arsip WDI 142 rilis di keluaran repo; keduanya tetap perlu dikerjakan/didokumentasikan.
+`docs/data-dictionary.md` juga masih berupa kerangka dan perlu dilengkapi dengan tipe, rentang,
+serta aturan kolom aktual.
 
 ## Pembagian kerja
 

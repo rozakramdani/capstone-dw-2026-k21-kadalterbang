@@ -3,13 +3,15 @@
     python unduh_data.py --kasus <N>     # sekali, isi data/raw/
     python pipeline.py
 
-Keluaran: Silver ber-lineage snapshot, profil semua snapshot, panel Gold, dan matriks ketersediaan.
+Keluaran: Silver ber-lineage snapshot, profil semua snapshot, panel Gold, matriks
+ketersediaan, dan rekonsiliasi nasional.
 """
 import sys
 
 from src import ekstraksi
 from src.common.manifest import baca, periksa
 from src.gold.panel_provinsi import bentuk_panel_provinsi
+from src.gold.rekonsiliasi import bentuk_tabel_rekonsiliasi
 from src.gold.tabel_nasional import bentuk_tabel_nasional
 from src.gold.muat_sql import muat as muat_sql
 from src.profiling.profil_anomali import jalankan_profiling
@@ -43,6 +45,7 @@ def main():
     jalankan_profiling()
     grid, indonesia, matriks, ringkasan = bentuk_panel_provinsi()
     nasional = bentuk_tabel_nasional()
+    rekonsiliasi = bentuk_tabel_rekonsiliasi(nasional)
     jumlah_sql = muat_sql()
     print(
         f"panel Gold: {len(grid)} baris ({int(grid['tersedia'].sum())} terisi); "
@@ -50,7 +53,9 @@ def main():
         f"sel kosong pada tahun terbit: {int(matriks['sel_kosong'].sum())}; "
         f"observasi Gold: {ringkasan['baris_gold_observasi']}; "
         f"tabel nasional: {len(nasional)} baris "
-        f"({int(nasional['nilai'].notna().sum())} nilai nasional terbit)"
+        f"({int(nasional['nilai'].notna().sum())} nilai nasional terbit); "
+        f"rekonsiliasi: {len(rekonsiliasi)} baris "
+        f"({int(rekonsiliasi['berpasangan'].sum())} periode berpasangan)"
     )
     print(
         "SQLite: "

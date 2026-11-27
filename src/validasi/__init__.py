@@ -10,6 +10,7 @@ validasi ditulis ke reports/validasi.md. Data dictionary di docs/data-dictionary
 
 from pathlib import Path
 
+import pandas as pd
 import pandera.pandas as pa
 
 
@@ -43,8 +44,15 @@ KUNCI_GOLD = [
     "rincian",
 ]
 
+KATEGORI_REKONSILIASI = {
+    "definisi berbeda",
+    "metode berbeda",
+    "vintage berbeda",
+    "cakupan berbeda",
+    "belum terjelaskan",
+}
 
-def jalankan(silver, gold):
+def jalankan(silver, gold, rekonsiliasi=None):
     """Menjalankan validasi dasar Silver dan Gold."""
 
     laporan = []
@@ -130,10 +138,102 @@ def jalankan(silver, gold):
         "var1410 dan var1831 tetap tercatat sebagai dua seri berbeda.",
     )
 
-    # Menyimpan laporan
-    Path("reports").mkdir(exist_ok=True)
+    # 7. Keunikan kunci panel Gold
+    kunci_panel = ["wilayah_kode", "periode", "seri_kode"]
+    unik_panel = not gold.duplicated(subset=kunci_panel).any()
 
-    isi_laporan = [
+    catat(
+        "Keunikan kunci panel Gold",
+        unik_panel,
+        "Setiap kombinasi wilayah, periode, dan seri hanya muncul satu kali.",
+    )
+
+    # 8. Satu satuan per indikator Gold
+    satuan_gold = (
+        gold.groupby("seri_kode")["satuan"]
+        .apply(
+            lambda kolom: (
+                kolom.notna().all()
+                and kolom.astype(str).str.strip().ne("").all()
+                and kolom.nunique() == 1
+            )
+        )
+        .all()
+    )
+
+    catat(
+        "Konsistensi satuan indikator Gold",
+        satuan_gold,
+        "Setiap indikator Gold menggunakan satu satuan yang tidak kosong.",
+    )
+
+    # 9. Setiap sel Gold tersedia memiliki pasangan di Silver
+    silver_kunci = set(
+        zip(
+            silver["seri_kode"].astype(str),
+            silver["wilayah_kode"].astype(str),
+            silver["periode"].astype(str),
+            silver["rincian"].astype(str),
+        )
+    )
+
+    sel_gold = gold.loc[gold["tersedia"]].copy()
+    pasangan_valid = True
+    sel_tidak_cocok = []
+
+    for _, baris in sel_gold.iterrows():
+        periode_sumber = str(baris["periode_sumber"]).split(";")
+
+        for periode in periode_sumber:
+            kunci = (
+                str(baris["seri_kode"]),
+                str(baris["wilayah_kode"]),
+                periode.strip(),
+                str(baris["rincian"]),
+            )
+
+            if kunci not in silver_kunci:
+                pasangan_valid = False
+                sel_tidak_cocok.append(kunci)
+
+    catat(
+        "Kelengkapan pasangan Gold dan Silver",
+        pasangan_valid,
+        (
+            "Setiap periode sumber pada sel Gold tersedia ditemukan di Silver."
+            if pasangan_valid
+            else f"Terdapat {len(sel_tidak_cocok)} pasangan Gold-Silver yang tidak ditemukan."
+        ),
+    )
+
+    # 10. Kategori pada baris rekonsiliasi berpasangan
+    kategori_valid = False
+
+    if rekonsiliasi is not None:
+        berpasangan = rekonsiliasi.loc[
+            rekonsiliasi["berpasangan"].eq(True)
+        ]
+
+        kategori_valid = (
+            not berpasangan.empty
+            and berpasangan["kategori_penjelasan"].notna().all()
+            and berpasangan["kategori_penjelasan"]
+            .astype(str)
+            .str.strip()
+            .ne("")
+            .all()
+            and berpasangan["kategori_penjelasan"]
+            .isin(KATEGORI_REKONSILIASI)
+            .all()
+        )
+
+    catat(
+        "Kategori rekonsiliasi berpasangan",
+        kategori_valid,
+        "Setiap baris rekonsiliasi berpasangan memiliki kategori penjelasan yang valid.",
+    )
+
+    laporan_md = [
         "# Laporan Validasi Silver dan Gold",
         "",
         f"- Jumlah baris Silver: {len(silver)}",
@@ -144,23 +244,20 @@ def jalankan(silver, gold):
         "## Hasil Pemeriksaan",
         "",
         *laporan,
-        "",
     ]
 
+    Path("reports").mkdir(parents=True, exist_ok=True)
     Path("reports/validasi.md").write_text(
-        "\n".join(isi_laporan),
+        "\n".join(laporan_md),
         encoding="utf-8",
     )
 
-    print("\n".join(laporan))
-    print(f"\nAturan lolos: {aturan_lolos}/{len(laporan)}")
+    print(f"Validasi: {aturan_lolos}/{len(laporan)} aturan lolos")
 
     if aturan_lolos != len(laporan):
-        raise ValueError(
-            "Validasi gagal. Periksa reports/validasi.md."
-        )
+        raise ValueError("Validasi Silver dan Gold gagal.")
 
     return {
         "aturan_validasi": len(laporan),
         "aturan_lolos": aturan_lolos,
-    }
+    }    

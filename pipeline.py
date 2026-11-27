@@ -7,7 +7,9 @@ Keluaran: Silver ber-lineage snapshot, profil semua snapshot, panel Gold, matrik
 ketersediaan, dan rekonsiliasi nasional.
 """
 import sys
+import pandas as pd
 
+from src.validasi import jalankan as jalankan_validasi
 from src import ekstraksi
 from src.common.manifest import baca, periksa
 from src.gold.panel_provinsi import bentuk_panel_provinsi
@@ -46,6 +48,14 @@ def main():
     grid, indonesia, matriks, ringkasan = bentuk_panel_provinsi()
     nasional = bentuk_tabel_nasional()
     rekonsiliasi = bentuk_tabel_rekonsiliasi(nasional)
+    silver = pd.read_parquet("data/silver/silver.parquet")
+
+    hasil_validasi = jalankan_validasi(
+        silver,
+        grid,
+        rekonsiliasi,
+    )
+
     jumlah_sql = muat_sql()
     print(
         f"panel Gold: {len(grid)} baris ({int(grid['tersedia'].sum())} terisi); "

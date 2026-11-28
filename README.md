@@ -74,6 +74,9 @@ diperbarui.
 - **Lineage**: `_sha256_raw` diambil dari `src.common.manifest.sha256_raw`, tidak ditulis tangan.
 - **Satu perintah**: `python pipeline.py` dari `data/raw/` yang baru diunduh harus menghasilkan
   ulang Silver dan Gold yang di-commit.
+- **Hasil validasi sprint**: `python pipeline.py` telah lolos pada tahap validasi dengan
+  26 berkas mentah cocok manifest, 2.002 baris Silver, panel Gold 1.558 baris,
+  tabel nasional 55 baris, dan rekonsiliasi nasional 30 baris; seluruh 10 aturan validasi lolos.
 - **Tahap 5 SQL**: `python pipeline.py` juga memuat Silver, panel Gold, tabel nasional, dan
   rekonsiliasi ke `data/gold/warehouse.sqlite3` dengan DDL bertipe eksplisit di
   `src/gold/skema_sql.sql`; basis data ini diabaikan Git dan dapat dibangun ulang. Alasan

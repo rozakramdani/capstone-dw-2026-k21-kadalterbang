@@ -1,5 +1,17 @@
 # Laporan Validasi Silver dan Gold
 
+## Bukti Eksekusi Pipeline
+
+Hasil berikut diperoleh dengan menjalankan `python pipeline.py` pada cabang `main`:
+
+- Data mentah: 26 berkas cocok dengan `MANIFEST.csv`.
+- Ekstraksi: 4.261 baris mentah.
+- Silver: 2.002 baris.
+- Panel Gold: 1.558 baris.
+- Tabel nasional: 55 baris.
+- Rekonsiliasi nasional: 30 baris dengan 5 periode berpasangan.
+- Pemeriksaan skema Silver: `LOLOS`.
+
 - Jumlah baris Silver: 2002
 - Jumlah seri Silver: 8
 - Jumlah aturan: 10

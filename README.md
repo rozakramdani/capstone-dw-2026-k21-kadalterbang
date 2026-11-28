@@ -27,12 +27,12 @@ diperhatikan untuk kasus Anda. `data/raw/` tidak di-commit; anggota lain cukup m
 
 ```text
 unduh_data.py          milik starter — unduh paket kasus dari Release dan periksa sha256
-pipeline.py            satu perintah reproduksi: ekstraksi -> silver -> profil -> grid panel
+pipeline.py            satu perintah reproduksi: ekstraksi -> silver -> profil -> Gold nasional dan grid panel
 src/common/            milik starter — jangan diubah: manifest (lineage sha256), skema (pemeriksa Silver),
                        hasil (results/<nim>/metrics.json untuk bukti artefak di Workbench)
 src/ekstraksi/         tahap 1: pembaca tiap format
 src/silver/            tahap 2–4: profil, pembersihan, penyeragaman
-src/gold/              tahap 4–6: reshape panel, integrasi pembanding, penyimpanan SQL
+src/gold/              tahap 4–6: reshape panel, tabel nasional/pembanding, penyimpanan SQL
 src/skala/             tahap 7: arsip WDI 142 rilis (buat sendiri)
 src/validasi/          tahap 8: skema pandera/Great Expectations
 data/silver/, data/gold/   keluaran (boleh di-commit bila < 20 MB); grid Tahap 3 tersedia di
@@ -74,13 +74,22 @@ diperbarui.
 - **Lineage**: `_sha256_raw` diambil dari `src.common.manifest.sha256_raw`, tidak ditulis tangan.
 - **Satu perintah**: `python pipeline.py` dari `data/raw/` yang baru diunduh harus menghasilkan
   ulang Silver dan Gold yang di-commit.
-- **Tahap 5 SQL**: `python -m src.silver.muat_silver_sql` memuat Silver Parquet ke tabel
-  SQLite bertipe eksplisit; alasan pemilihan dan perbandingan dengan JSON dicatat di
-  `reports/tahap5_penyimpanan.md`.
+- **Hasil validasi sprint**: `python pipeline.py` telah lolos pada tahap validasi dengan
+  26 berkas mentah cocok manifest, 2.002 baris Silver, panel Gold 1.558 baris,
+  tabel nasional 55 baris, dan rekonsiliasi nasional 30 baris; seluruh 10 aturan validasi lolos.
+- **Tahap 5 SQL**: `python pipeline.py` juga memuat Silver, panel Gold, tabel nasional, dan
+  rekonsiliasi ke `data/gold/warehouse.sqlite3` dengan DDL bertipe eksplisit di
+  `src/gold/skema_sql.sql`; basis data ini diabaikan Git dan dapat dibangun ulang. Alasan
+  pemilihan serta perbandingan dengan JSON dicatat di `reports/tim.md` bagian Data dan lineage.
 - **Kelengkapan panel**: `python pipeline.py` membentuk grid 38 provinsi untuk tahun terbit tiap
   seri, menyimpan baris Indonesia secara terpisah, dan menulis matriks kelengkapan ke
   `reports/tables/matriks_ketersediaan_panel.csv`. Tahun sebelum seri terbit tidak dihitung sebagai
   missing.
+- **Tabel nasional Tahap 6**: pipeline membuat `data/gold/tabel_nasional.parquet`, satu baris
+  per periode-seri untuk enam indikator utama BPS dan dua pembanding WDI. Kolom `asal_nilai`
+  membedakan nilai Indonesia yang diterbitkan langsung dari periode tanpa padanan nasional;
+  periode tanpa baris Indonesia tidak diagregasi dari provinsi karena bobot/penyebut yang sesuai
+  tidak tersedia. Semua baris membawa `_berkas_raw` dan `_sha256_raw`.
 - **Snapshot dan anomali**: Silver menyimpan snapshot berbeda; salinan CSV/JSON hanya dideduplikasi
   dalam snapshot yang sama. Profil mengategorikan setiap kandidat pada seluruh snapshot dan
   menyimpan tanggal snapshot pada setiap baris; `reports/tables/revisi_snapshot.csv` mencatat

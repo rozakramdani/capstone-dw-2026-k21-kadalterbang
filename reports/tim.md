@@ -33,6 +33,32 @@ Snapshot mentah yang tersedia adalah paket Oktober 2026; tidak ada catatan penar
 independen dari snapshot tersebut. Atribusi data mengikuti `data/LISENSI.md`: Badan Pusat Statistik
 dan World Bank, World Development Indicators. Lisensi basis data turunan mengikuti ODbL 1.0.
 
+### Penyimpanan SQL dan lineage
+
+`python pipeline.py` memuat empat tabel SQLite ke `data/gold/warehouse.sqlite3` setelah seluruh
+Parquet dan tabel rekonsiliasi terbentuk. DDL bertipe eksplisit ada di `src/gold/skema_sql.sql`:
+`silver_observasi` (PK sumber-seri-wilayah-periode-rincian-berkas), `panel_provinsi` (PK
+wilayah-periode-seri), `tabel_nasional` dan `rekonsiliasi_nasional` (PK periode-seri).
+Panel menyimpan nilai kosong sebagai SQL `NULL` dan flag ketersediaan/anomali sebagai integer
+boolean. Setiap pemuatan mengganti isi tabel dalam satu transaksi dan memverifikasi jumlah baris
+SQL terhadap artefak sumbernya.
+
+Pada keluaran kasus ini, SQLite memuat 2.002 baris Silver, 1.558 baris panel Gold, 55 baris
+tabel nasional, dan 55 baris rekonsiliasi; jumlah setiap tabel sama dengan Parquet Silver/panel/
+tabel nasional atau CSV rekonsiliasi yang bersangkutan. SQLite cocok untuk skala proyek dan
+pipeline lokal karena tidak membutuhkan server dan dapat direproduksi dengan pustaka standar.
+Tabel bertipe dan PK eksplisit memudahkan pemeriksaan kunci, konsistensi tipe, serta kueri
+lintas seri/wilayah/periode; DuckDB lebih tepat bila prioritasnya analitik kolumnar besar atau
+kueri langsung Parquet, sedangkan PostgreSQL lebih sesuai untuk banyak penulis dan layanan
+bersamaan.
+
+JSON mentah tetap dipertahankan sebagai Bronze karena mempertahankan bentuk respons dan metadata
+asli saat format sumber berubah. Namun, skema JSON yang bervariasi tidak memberi batasan tipe dan
+kunci relasional setegas SQL, sehingga kurang praktis untuk validasi dan analisis tabel. Pilihan
+ini sengaja berlapis: dokumen mentah untuk arsip/lineage, SQL bertipe untuk Silver dan Gold yang
+telah dinormalisasi. Berkas SQLite merupakan keluaran turunan, tidak di-commit; tabel dapat
+dibangun ulang dari artefak repo dan data mentah.
+
 ## Masalah data dan penanganannya
 
 ### Celah panel
@@ -106,20 +132,27 @@ K-001–K-022 di `log-keputusan.csv`; statistik profil ada di `reports/tables/pr
 
 ## Integrasi dan rekonsiliasi
 
-Tabel `reports/tables/rekonsiliasi_nasional.csv` berisi 55 observasi Indonesia (`wilayah_kode
-=9999`) untuk enam seri BPS dan dua seri WDI, bersama satuan, berkas mentah, dan SHA-256. Irisan
-dihitung dari tahun yang benar-benar memiliki nilai di kedua sumber, bukan sekadar irisan rentang
-tahun.
+Gold rekonsiliasi berisi 30 baris untuk dua pasangan seri; 5 baris memiliki nilai dari kedua
+sumber dan 25 baris tidak memiliki pasangan pada periode yang sama. Irisan memakai periode yang
+benar-benar berisi nilai di kedua sumber. Kolom selisih dihitung sebagai nilai BPS dikurangi nilai
+WDI; tanda positif berarti angka BPS lebih tinggi secara numerik. Angka dan satuan berikut dapat
+ditarik ulang dari `data/gold/rekonsiliasi_nasional.parquet` (nilai nasional asal:
+`data/gold/tabel_nasional.parquet`).
 
-| Pasangan | Tahun dan nilai nasional yang tersedia bersama | Penilaian |
-|---|---|---|
-| BPS `var1410` vs WDI `SP.REG.BRTH.ZS` | 2016: 72,54% vs 72,5%; 2017: 73,18% vs 77,9%; 2018: 71,92% vs 71,9%; 2021: 77,04% vs 77,0% | Kelompok umur sama-sama di bawah 5 tahun. WDI memakai data survei rumah tangga dan konfirmasi pencatatan melalui sertifikat atau keterangan ibu/pengasuh; metode pengukuran tidak identik. |
-| BPS `var1311` vs WDI `VC.IHR.PSRC.P5` | 2022: 0,03% vs 0,303769 per 100.000 penduduk | Definisi dan satuan berbeda. `var1311` mengukur korban kejahatan kekerasan dalam 12 bulan; WDI mengukur pembunuhan disengaja. WDI hanya konteks, bukan perbandingan selisih langsung. |
+| Pasangan | Periode | Nilai BPS | Nilai WDI | Selisih numerik (BPS − WDI) | Kategori dan penjelasan |
+|---|---:|---:|---:|---:|---|
+| `var1410` vs `SP.REG.BRTH.ZS` | 2016 | 72,54% | 72,5% | +0,04 poin persentase | **Metode berbeda** — kedua seri mencakup anak di bawah 5 tahun, tetapi BPS menggunakan Susenas dan bukti akta; WDI menggunakan survei rumah tangga, dengan sertifikat yang dilihat pewawancara atau keterangan ibu/pengasuh. |
+| `var1410` vs `SP.REG.BRTH.ZS` | 2017 | 73,18% | 77,9% | −4,72 poin persentase | **Metode berbeda** — perbedaan pengukuran yang sama berlaku; selisih ini paling besar secara numerik di antara empat periode dengan satuan persen yang sama. |
+| `var1410` vs `SP.REG.BRTH.ZS` | 2018 | 71,92% | 71,9% | +0,02 poin persentase | **Metode berbeda** — cakupan umur sama, tetapi sumber survei dan cara memastikan pencatatan kelahiran tidak identik. |
+| `var1410` vs `SP.REG.BRTH.ZS` | 2021 | 77,04% | 77,0% | +0,04 poin persentase | **Metode berbeda** — cakupan umur sama, tetapi sumber survei dan cara memastikan pencatatan kelahiran tidak identik. |
+| `var1311` vs `VC.IHR.PSRC.P5` | 2022 | 0,03% | 0,303768746 per 100.000 penduduk | −0,273768746 (angka mentah; satuan tidak sama) | **Definisi berbeda** — BPS mengukur proporsi penduduk korban kejahatan kekerasan dalam 12 bulan, sedangkan WDI mengukur laju kematian akibat pembunuhan disengaja. Selisih aritmetis tersimpan di Gold, tetapi tidak bermakna sebagai ukuran perbedaan karena definisi dan satuannya berbeda; WDI hanya konteks. |
 
-`var1831` tidak dipasangkan dengan seri WDI kelahiran karena BPS mencakup anak usia 0–17 tahun
-pemilik akta kelahiran, bukan kelompok balita. Rincian metode dan batas interpretasi tercatat di
-`reports/rekonsiliasi_tahap6.md`. Analisis revisi WDI dari arsip 142 rilis belum tersedia di repo;
-belum ada kesimpulan lintas-vintage.
+Kategori yang terpakai adalah **metode berbeda** dan **definisi berbeda**; keduanya menjelaskan
+seluruh lima pasangan, sehingga tidak ada pasangan berangka yang diberi kategori belum
+terjelaskan. Keputusan pemilihan pasangan, kategori, dan batas interpretasi tercatat di
+`log-keputusan.csv` (K-028). Seri `var1831` tidak dipasangkan dengan seri WDI kelahiran karena
+kelompok umurnya 0–17 tahun, bukan balita (K-003). Gold tetap menyimpan baris tanpa pasangan,
+tetapi selisihnya kosong; angka selisih hanya tersedia untuk lima periode pada tabel di atas.
 
 ## Validasi dan reproduksibilitas
 
@@ -131,10 +164,10 @@ Rozak melaporkan 26 berkas cocok dan 4.261 baris mentah saat pipeline dijalankan
 wajib, kunci, tipe nilai, format periode, dan lineage manifest.
 
 Validasi tersebut adalah pemeriksaan skema Silver, bukan validasi Pandera/Great Expectations.
-Durasi pipeline dari nol tidak dicatat. Belum ada hasil benchmark Pandas vs DuckDB/Dask, database
-SQL Silver/Gold, atau pemrosesan arsip WDI 142 rilis di keluaran repo; ketiganya tetap perlu
-dikerjakan/didokumentasikan. `docs/data-dictionary.md` juga masih berupa kerangka dan perlu
-dilengkapi dengan tipe, rentang, serta aturan kolom aktual.
+Durasi pipeline dari nol tidak dicatat. Belum ada hasil benchmark Pandas vs DuckDB/Dask atau
+pemrosesan arsip WDI 142 rilis di keluaran repo; keduanya tetap perlu dikerjakan/didokumentasikan.
+`docs/data-dictionary.md` juga masih berupa kerangka dan perlu dilengkapi dengan tipe, rentang,
+serta aturan kolom aktual.
 
 ## Pembagian kerja
 

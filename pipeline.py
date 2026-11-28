@@ -1,17 +1,21 @@
-"""Jalankan ekstraksi, pembentukan Silver, dan grid panel provinsi.
+"""Jalankan ekstraksi, pembentukan Silver, dan panel Gold provinsi.
 
     python unduh_data.py --kasus <N>     # sekali, isi data/raw/
     python pipeline.py
 
-Keluaran: Silver ber-lineage snapshot, profil semua snapshot, pemilihan Gold, dan grid panel tahunan.
+Keluaran: Silver ber-lineage snapshot, profil semua snapshot, panel Gold, matriks
+ketersediaan, dan rekonsiliasi nasional.
 """
 import sys
-
 import pandas as pd
+
 from src.validasi import jalankan as jalankan_validasi
 from src import ekstraksi
 from src.common.manifest import baca, periksa
-from src.gold.grid_provinsi import bentuk_grid
+from src.gold.panel_provinsi import bentuk_panel_provinsi
+from src.gold.rekonsiliasi import bentuk_tabel_rekonsiliasi
+from src.gold.tabel_nasional import bentuk_tabel_nasional
+from src.gold.muat_sql import muat as muat_sql
 from src.profiling.profil_anomali import jalankan_profiling
 from src.silver.buat_silver import buat_silver
 
@@ -41,24 +45,32 @@ def main():
 
     buat_silver()
     jalankan_profiling()
-    grid, indonesia, matriks, ringkasan = bentuk_grid()
-    baris_tidak_dipilih = sum(
-        ringkasan[kunci]
-        for kunci in (
-            "baris_snapshot_lama_tidak_dipilih",
-            "baris_rincian_tidak_dipilih",
-            "baris_subtahunan_tidak_dipilih",
-        )
-    )
-    print(
-        f"grid provinsi: {len(grid)} sel; Indonesia terpisah: {len(indonesia)} baris; "
-        f"sel kosong pada tahun terbit: {int(matriks['sel_kosong'].sum())}; "
-        f"baris Silver tidak terpilih: {baris_tidak_dipilih}"
+    grid, indonesia, matriks, ringkasan = bentuk_panel_provinsi()
+    nasional = bentuk_tabel_nasional()
+    rekonsiliasi = bentuk_tabel_rekonsiliasi(nasional)
+    silver = pd.read_parquet("data/silver/silver.parquet")
+
+    hasil_validasi = jalankan_validasi(
+        silver,
+        grid,
+        rekonsiliasi,
     )
 
-    silver = pd.read_parquet("data/silver/silver.parquet")
-    hasil_validasi = jalankan_validasi(silver, grid)
-    print(f"Hasil validasi: {hasil_validasi}")
+    jumlah_sql = muat_sql()
+    print(
+        f"panel Gold: {len(grid)} baris ({int(grid['tersedia'].sum())} terisi); "
+        f"Indonesia terpisah: {len(indonesia)} baris; "
+        f"sel kosong pada tahun terbit: {int(matriks['sel_kosong'].sum())}; "
+        f"observasi Gold: {ringkasan['baris_gold_observasi']}; "
+        f"tabel nasional: {len(nasional)} baris "
+        f"({int(nasional['nilai'].notna().sum())} nilai nasional terbit); "
+        f"rekonsiliasi: {len(rekonsiliasi)} baris "
+        f"({int(rekonsiliasi['berpasangan'].sum())} periode berpasangan)"
+    )
+    print(
+        "SQLite: "
+        + ", ".join(f"{tabel}={jumlah:,}" for tabel, jumlah in jumlah_sql.items())
+    )
 
 if __name__ == "__main__":
     main()

@@ -1,9 +1,21 @@
 # Laporan Validasi Silver dan Gold
 
+## Bukti Eksekusi Pipeline
+
+Hasil berikut diperoleh dengan menjalankan `python pipeline.py` pada cabang `main`:
+
+- Data mentah: 26 berkas cocok dengan `MANIFEST.csv`.
+- Ekstraksi: 4.261 baris mentah.
+- Silver: 2.002 baris.
+- Panel Gold: 1.558 baris.
+- Tabel nasional: 55 baris.
+- Rekonsiliasi nasional: 30 baris dengan 5 periode berpasangan.
+- Pemeriksaan skema Silver: `LOLOS`.
+
 - Jumlah baris Silver: 2002
 - Jumlah seri Silver: 8
-- Jumlah aturan: 6
-- Aturan lolos: 6
+- Jumlah aturan: 10
+- Aturan lolos: 10
 
 ## Hasil Pemeriksaan
 
@@ -13,3 +25,7 @@
 - Konsistensi satuan: **LOLOS** — Setiap seri menggunakan satuan yang konsisten.
 - Keunikan kunci Gold setelah snapshot: **LOLOS** — Setiap kombinasi seri, wilayah, periode, dan rincian hanya muncul satu kali.
 - Pemisahan seri pencatatan kelahiran: **LOLOS** — var1410 dan var1831 tetap tercatat sebagai dua seri berbeda.
+- Keunikan kunci panel Gold: **LOLOS** — Setiap kombinasi wilayah, periode, dan seri hanya muncul satu kali.
+- Konsistensi satuan indikator Gold: **LOLOS** — Setiap indikator Gold menggunakan satu satuan yang tidak kosong.
+- Kelengkapan pasangan Gold dan Silver: **LOLOS** — Setiap periode sumber pada sel Gold tersedia ditemukan di Silver.
+- Kategori rekonsiliasi berpasangan: **LOLOS** — Setiap baris rekonsiliasi berpasangan memiliki kategori penjelasan yang valid.

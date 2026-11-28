@@ -67,7 +67,7 @@ def _baca_silver(path):
     df = pd.read_parquet(path)
     wajib = {
         "seri_kode", "wilayah_kode", "nama_wilayah", "periode", "jenis_periode", "rincian",
-        "nilai", "_berkas_raw",
+        "nilai", "satuan", "_berkas_raw", "_sha256_raw",
     }
     hilang = wajib - set(df.columns)
     if hilang:
@@ -82,6 +82,8 @@ def _baca_silver(path):
     df["_snapshot"] = df["_berkas_raw"].str.extract(r"(\d{4}-\d{2}-\d{2})")
     if df["_snapshot"].isna().any():
         raise ValueError("Tanggal snapshot tidak dapat ditentukan dari _berkas_raw.")
+    if df["_sha256_raw"].isna().any() or df["_berkas_raw"].isna().any():
+        raise ValueError("Baris Silver tanpa lineage berkas atau SHA-256.")
 
     kode_tidak_dikenal = set(df["wilayah_kode"]) - set(PROVINSI) - {KODE_INDONESIA}
     if kode_tidak_dikenal:
@@ -146,9 +148,26 @@ def pilih_observasi_gold(
     """Terapkan snapshot, rincian, periode, dan penanda secara deterministik."""
     data = _baca_silver(silver) if isinstance(silver, (str, Path)) else silver.copy()
     data = data[data["seri_kode"].isin(SERI)].copy()
+    if "_snapshot" not in data:
+        data["_snapshot"] = data["_berkas_raw"].astype(str).str.extract(
+            r"(\d{4}-\d{2}-\d{2})"
+        )
+    if data["_snapshot"].isna().any():
+        raise ValueError("Tanggal snapshot tidak dapat ditentukan dari _berkas_raw.")
+    if data[["_berkas_raw", "_sha256_raw"]].isna().any().any():
+        raise ValueError("Baris Silver tanpa lineage berkas atau SHA-256.")
     seri_ada = set(data["seri_kode"])
     if seri_ada != set(SERI):
         raise ValueError(f"Seri Silver tidak cocok: {sorted(seri_ada)}")
+    satuan_per_seri = data.groupby("seri_kode")["satuan"].agg(
+        lambda kolom: sorted(kolom.dropna().astype(str).str.strip().unique())
+    )
+    satuan_tidak_konsisten = satuan_per_seri[satuan_per_seri.map(len) != 1]
+    if not satuan_tidak_konsisten.empty:
+        raise ValueError(
+            "Setiap indikator harus memiliki tepat satu satuan di Silver: "
+            f"{satuan_tidak_konsisten.to_dict()}"
+        )
 
     jumlah_silver = len(data)
     snapshot_terbaru = data.groupby("seri_kode")["_snapshot"].max()
@@ -297,6 +316,16 @@ def bentuk_grid(
         how="left",
         validate="one_to_one",
     )
+    satuan_per_seri = (
+        provinsi.groupby("seri_kode")["satuan"].first().to_dict()
+    )
+    satuan_panel = set(satuan_per_seri.values())
+    if len(satuan_panel) != 1:
+        raise ValueError(
+            "Panel ini memakai satu kolom nilai; satuan antarindikator harus sama: "
+            f"{sorted(satuan_panel)}"
+        )
+    grid["satuan"] = grid["seri_kode"].map(satuan_per_seri)
     for kolom in [
         "flag_kandidat_anomali", "flag_outlier", "flag_galat_input", "flag_patahan_seri"
     ]:
